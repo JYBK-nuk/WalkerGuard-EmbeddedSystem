@@ -1,9 +1,3 @@
-yolov8/License_Plate/annotations/*.xml
-yolov8/License_Plate/yolo/train/images/*.png
-yolov8/License_Plate/yolo/train/labels/*.txt
-yolov8/License_Plate/images/*.png
-yolov8/License_Plate/yolo/valid/images/*.png
-yolov8/License_Plate/yolo/valid/labels/*.txt
-
-car-plate-detection.zip
+**/dataset/*
+**/datasets/*
 *.mp4
