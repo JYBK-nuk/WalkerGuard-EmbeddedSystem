@@ -16,7 +16,7 @@ print("\n".join([f"{i+1}: {model}" for i, model in enumerate(models)]))
 model = YOLO(F"model/{models[int(input())-1]}")
 
 # Open the video file
-video_path = "https://cctv4.kctmc.nat.gov.tw/47009f84" 
+video_path = "https://cctv4.kctmc.nat.gov.tw/47009f84"
 video_path = "https://cctv1.kctmc.nat.gov.tw/4c153727"
 cap = cv2.VideoCapture(video_path)
 
@@ -41,7 +41,6 @@ while cap.isOpened():
             boxes = results[0].boxes.xywh.cpu()
             track_ids = results[0].boxes.id.int().cpu().tolist()
             classes = results[0].boxes.cls.int().cpu().tolist()
-
 
             # Visualize the results on the frame
             annotated_frame = results[0].plot()
@@ -69,7 +68,15 @@ while cap.isOpened():
         if key == ord("q"):
             break
         elif key == ord("s"):
-            print("\n".join([f"{str(k)}: {v['class']}" for k, v in dict(track_history).items()]))
+            # display track history
+            _temp = [(k, v['class']) for k, v in dict(track_history).items()]
+            all_tracks = defaultdict(lambda: [])
+            for k, v in _temp:
+                all_tracks[v].append(k)
+            print("\n\n\nTrack history:")
+            for k, v in all_tracks.items():
+                print(f"{k}: {v}")
+
     else:
         # Break the loop if the end of the video is reached
         break
