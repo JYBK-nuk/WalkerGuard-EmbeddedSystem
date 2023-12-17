@@ -10,7 +10,7 @@ from supervision import ColorPalette
 from supervision import Color
 from supervision import Point
 # Load the YOLOv8 model
-model = YOLO('./model/vir.pt')
+model = YOLO('./PedestrianVehicleDetection/model/vir.pt')
 #print(model.fuse())
 
 # Open the video file
