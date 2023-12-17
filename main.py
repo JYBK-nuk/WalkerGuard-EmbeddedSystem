@@ -4,12 +4,12 @@ import cv2
 import numpy as np
 
 from ultralytics import YOLO
-
+import supervision
 # Load the YOLOv8 model
-model = YOLO('vir.pt')
+model = YOLO('./model/vir.pt')
 
 # Open the video file
-video_path = "video.mp4"
+video_path = "./video/japan.mp4"
 cap = cv2.VideoCapture(video_path)
 
 # Store the track history
@@ -22,7 +22,7 @@ while cap.isOpened():
 
     if success:
         # Run YOLOv8 tracking on the frame, persisting tracks between frames
-        results = model.track(frame, persist=True)
+        results = model.track(frame, persist=True,tracker="botsort.yaml")
         if(results[0].boxes.id is None):
             continue
         # Get the boxes and track IDs
@@ -48,7 +48,7 @@ while cap.isOpened():
         cv2.imshow("YOLOv8 Tracking", annotated_frame)
 
         # Break the loop if 'q' is pressed
-        if cv2.waitKey(1) & 0xFF == ord("q"):
+        if cv2.waitKey(1) & 0xFF == ord("q")& 0xFF == ord("Q"):
             break
     else:
         # Break the loop if the end of the video is reached
