@@ -9,31 +9,41 @@ from supervision import Detections,BoxAnnotator
 from supervision import ColorPalette
 from supervision import Color
 from supervision import Point
+# Load the YOLOv8 model
+import tkinter as tk
+from PIL import Image, ImageTk
 from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from scipy.interpolate import make_interp_spline
 
-ax = []      
-ay = []
-a_ped=[]
-a_car=[]
+ax = []                    
+ay = []                   
 plt.ion() 
-def moving_avg(x, n):
-    cumsum = np.cumsum(np.insert(x, 0, 0)) 
-    return (cumsum[n:] - cumsum[:-n]) / float(n)
 frame_count=0
-#opencv
-close_mask=0
-def test(val):
-    global close_mask
-    if val==255:
-        close_mask=1
-    else:
-        close_mask=0
-    print(close_mask)
+window = tk.Tk()
 
-# Load the YOLOv8 model
+frame = tk.Frame(window)                  # 加入 Frame 框架
+frame.pack()
+a = tk.StringVar() 
+def show(e):
+    if scale_h.get() ==0:
+        a.set('無標誌')
+    if scale_h.get() ==1:
+        if scale_b.get() == 0:
+            a.set('紅燈')
+            scale_b.configure(background='red')
+        else:
+            a.set('綠燈')
+            scale_b.configure(background='green')
+label = tk.Label(window, textvariable=a)
+label.pack()
+scale_h = tk.Scale(frame, from_=0, to=1, orient='horizontal',command=show)  # 改變時執行 show
+scale_h.pack(side=tk.LEFT)
+scale_b = tk.Scale(frame, from_=0, to=1, orient='horizontal',command=show)  # 改變時執行 show
+scale_b.pack(side=tk.LEFT)
+
+
+
 model = YOLO('./PedestrianVehicleDetection/model/vir.pt')
 #print(model.fuse())
 
@@ -72,32 +82,28 @@ polygon_annotator = sv.PolygonZoneAnnotator(zone=polygon,
         thickness=4,
         text_thickness=8,
         text_scale=4)
-with sv.VideoSink(target_path='abc.mp4', video_info=video_info) as sink:
-    while cap.isOpened():
+
+def update_image():
+    global frame_count
+    with sv.VideoSink(target_path='abc.mp4', video_info=video_info) as sink:
         ret, frame = cap.read()
         # if frame is read correctly ret is True
         results=model.predict(frame,conf=0.5)[0]#可設定最小要幾趴 aka threshold
         
         detections = sv.Detections.from_ultralytics(results)#取得偵測到的物件
-        pedestrian_count=0
-        car_count=0
-        for element in detections.class_id:
-            if class_list[element]!='pedestrian': 
-                car_count+=1
-            else:
-                pedestrian_count+=1
-        #這個code大概隔週看就忘嘞x
-        if close_mask==0:
-            InCrossRoad=[]#如果有多個區域 其實就是把每個區域個別抓出來
-            InCrossRoadMask=polygon.trigger(detections=detections)#他把所有在區域內的物件都抓出來
-            InCrossRoadin=detections[InCrossRoadMask]#把本來的偵測到的(區域內外)的只抓出在區域內的
-            InCrossRoad.append(InCrossRoadin)
-            detections=sv.Detections.merge(InCrossRoad)#最後把區域的物整合
         
+        #這個code大概隔週看就忘嘞x
+        frame_count+=1
+        InCrossRoad=[]#如果有多個區域 其實就是把每個區域個別抓出來
+        InCrossRoadMask=polygon.trigger(detections=detections)#他把所有在區域內的物件都抓出來
+        InCrossRoadin=detections[InCrossRoadMask]#把本來的偵測到的(區域內外)的只抓出在區域內的
+        InCrossRoad.append(InCrossRoadin)
+        detections=sv.Detections.merge(InCrossRoad)#最後把區域的物整合
+        temp=0
         for element in detections.class_id:
+            temp+=1
             if class_list[element]!='pedestrian': #有'pedestrian' 跟 'people' 但people連機車上的人也會偵測 但行人不會被誤判 
                 print("有車")
-            
 
         annotated_frame = polygon_annotator.annotate(scene=frame)#劃出斑馬線區域
         
@@ -128,49 +134,34 @@ with sv.VideoSink(target_path='abc.mp4', video_info=video_info) as sink:
         #annotated_frame=testline_annotator.annotate(annotated_frame, line_counter)
         #line_counter.trigger(detections=detections)
         
-        
-        
-        
-        frame_count+=1
-        ay.append(polygon.current_count)    
-        a_ped.append(pedestrian_count)
-        a_car.append(car_count)
-        ax.append(frame_count)          
-        plt.clf()
+        sink.write_frame(frame=annotated_frame)
+        annotated_frame = cv2.cvtColor(annotated_frame, cv2.COLOR_BGR2RGB)
+        img = Image.fromarray(annotated_frame)
+        # 将PIL图像转换为Tkinter图像
+        img_tk = ImageTk.PhotoImage(image=img)
+        ay.append(polygon.current_count)           
+        ax.append(frame_count)        
         if len(ax) >30:
             ax.pop(0)
             ay.pop(0)
-            a_ped.pop(0)
-            a_car.pop(0)
-            tempx=np.array(ax)
-            tempy=np.array(ay)
-            tempp=np.array(a_ped)
-            tempc=np.array(a_car)
-            mod=make_interp_spline(tempx,tempy)
-            mod2=make_interp_spline(tempx,tempp)
-            mod3=make_interp_spline(tempx,tempc)
-            x2=np.linspace(tempx.min(), tempx.max(), 500)
-            y2=mod(x2)
-            p2=mod2(x2)
-            c2=mod3(x2)
-            plt.plot(x2,y2) 
-            plt.plot(x2,p2) 
-            plt.plot(x2,c2) 
-            plt.legend(['inArea','pedestrian','car'])
-        else:              
-            plt.plot(ax,ay)        
-        plt.pause(0.0100000001)        
+        plt.clf()              
+        plt.plot(ax,ay)        
+        plt.pause(0.1)         
         plt.ioff()
+        label.configure(image=img_tk)
+        label.image = img_tk
+        label.after(10, update_image)  
+    
+
+            
         
-        sink.write_frame(frame=annotated_frame)
-        cv2.imshow('frame', annotated_frame)
-        if frame_count==1:
-            cv2.createTrackbar('Right-0-CloseMask', 'frame', 0, 255,test)
-        if cv2.waitKey(1) == ord('q'):
-            break
+label = tk.Label(window)
+label.pack()
+
+update_image()
+frame_count+=1
+window.mainloop()
 cap.release()
 cv2.destroyAllWindows()
     
     
-
-
