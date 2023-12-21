@@ -3,7 +3,7 @@ import numpy as np
 import random
 img = cv2.VideoCapture('./video/japan.mp4')
 img = img.read()[1]
-cv2.imwrite('output.png', img)
+#cv2.imwrite('output.png', img)
 
 dots = []
 polygon=[]
@@ -22,17 +22,17 @@ def show_xy(event,x,y,flags,param):
             x2 = polygon[num-1][0]
             y2 = polygon[num-1][1]
             cv2.line(img,(x1,y1),(x2,y2),colorrr,2)  # 取得最後的兩個座標，繪製直線
-        cv2.imshow('oxxostudio', img)
+        cv2.imshow('chooseArea', img)
         print(polygon)
 
-cv2.imshow('oxxostudio', img)
+cv2.imshow('chooseArea', img)
 
 first= True
 while True:
     keycode = cv2.waitKey(0)  
     if keycode == 112:#press p開始  每次按p都會開始一個新的區域
         colorrr=(random.randint(0,255),random.randint(0,255),random.randint(0,255))
-        cv2.setMouseCallback('oxxostudio', show_xy)
+        cv2.setMouseCallback('chooseArea', show_xy)
         #print(np.array(polygon))
         if not first:
             dots.append(np.array(polygon))
@@ -47,7 +47,7 @@ while True:
         
 
 print(dots)
-with open('polygon.txt', 'w') as f:
+with open('./PedestrianVehicleDetection/polygon.txt', 'w') as f:
     f.write(str(dots))
 
 
