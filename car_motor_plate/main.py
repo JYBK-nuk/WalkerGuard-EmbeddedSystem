@@ -1,5 +1,6 @@
 import cv2
 from ultralytics import YOLO
+import plate
 
 # Load the YOLOv8 model
 model = YOLO('./best.pt')
@@ -34,7 +35,6 @@ while cap.isOpened():
         # 抓車牌
         Plates = []
         for box, class_id in zip(boxes, classes):
-            print(results[0].names)
             x, y, x2, y2 = box
             if results[0].names[class_id] == 'Plate':
                 Plates.append(frame[int(y) : int(y2), int(x) : int(x2)])
@@ -42,8 +42,10 @@ while cap.isOpened():
             # combine images into a single image
             for i in range(len(Plates)):
                 Plates[i] = cv2.resize(Plates[i], (200, 200))
-            img = cv2.hconcat(Plates)
-            cv2.imshow("Plates", img)
+        plate.get_all_plates(Plates)
+
+
+
 
         # Break the loop if 'q' is pressed
         key = cv2.waitKey(1) & 0xFF
