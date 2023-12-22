@@ -6,7 +6,7 @@ import plate
 model = YOLO('./best.pt')
 
 # Open the video file
-video_path = "IMG_5222.mp4"
+video_path = "test.mp4"
 cap = cv2.VideoCapture(video_path)
 
 # Loop through the video frames
