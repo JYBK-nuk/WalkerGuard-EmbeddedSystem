@@ -11,15 +11,25 @@ intiPosition = [
 ]
 targetPolygon = [400, 300]
 images = ["./images/1.png", "./images/2.png", "./images/3.png"]
-images = ["./images/1.png"]
 
-DISPLAY_SIZE = (1600, 900)
+image_in = [cv2.imread(img) for img in images]
+image_in = [cv2.resize(img, (800, 600)) for img in image_in]
+
+
+imagesMatrix = [None for i in range(len(images))]
+
+# 轉換後地圖底圖
+TransformedMap = None
+
+DISPLAY_SIZE = (800, 600)
 
 
 def onMouse(event, x, y, flags, param):
+    global image_in, intiPosition
     if event == cv2.EVENT_LBUTTONDOWN:
         img_index = param["img_index"]
-        image = cv2.imread(images[img_index])
+        image = image_in[img_index].copy()
+        # 還原成原圖大小
         x = int(x * (image.shape[1] / DISPLAY_SIZE[0]))
         y = int(y * (image.shape[0] / DISPLAY_SIZE[1]))
         for i in range(4):
@@ -31,13 +41,13 @@ def onMouse(event, x, y, flags, param):
             intiPosition[img_index] = [[-1, -1], [-1, -1], [-1, -1], [-1, -1]]
 
 
-def main():
+def getAllMatrixAndTransformedImage():
+    global image_in, intiPosition, imagesMatrix, TransformedMap
     for img_index, img in enumerate(images):
-        image_in = cv2.imread(img)
         cv2.namedWindow("image")
         cv2.setMouseCallback("image", onMouse, {"img_index": img_index})
         while True:
-            image = image_in.copy()
+            image = image_in[img_index].copy()
             # Draw the points
             for i in range(4):
                 if intiPosition[img_index][i][0] == -1:
@@ -105,7 +115,7 @@ def main():
     # print(intiPosition)
     # Perspective Transformation
     for img_index, img in enumerate(images):
-        image_in = cv2.imread(img)
+        image = image_in[img_index].copy()
         pts1 = np.float32(intiPosition[img_index])
         # 左上、左下、右下、右上 (左上為0,0)
         pts2 = np.float32(
@@ -117,15 +127,63 @@ def main():
             ]
         )
         M = cv2.getPerspectiveTransform(pts1, pts2)
-
-
-        # warpPerspective without clipping
-        image_out = cv2.warpPerspective(image_in, M, (targetPolygon[0], targetPolygon[1] + 300))
-        cv2.imshow("image", image_out)
-        cv2.waitKey(0)
-
+        dst = cv2.warpPerspective(image, M, (targetPolygon[0], targetPolygon[1]))
+        imagesMatrix[img_index] = M
+        global TransformedMap
+        TransformedMap = dst
     cv2.destroyAllWindows()
 
 
+points = [[-1, -1] for _ in range(len(images))]
+plt_point = (0, 0)
+
+
+def Transform(event, x, y, flags, param):
+    global plt_point, points, imagesMatrix, image_in, DISPLAY_SIZE
+    if event == cv2.EVENT_LBUTTONDOWN:
+        img_index = param["img_index"]
+        image = image_in[img_index].copy()
+        x = int(x * (image.shape[1] / DISPLAY_SIZE[0]))
+        y = int(y * (image.shape[0] / DISPLAY_SIZE[1]))
+        points[img_index] = [x, y]
+        m = imagesMatrix[img_index]
+        transformed_x, transformed_y = cv2.perspectiveTransform(
+            np.array([[[x, y]]], dtype=np.float32), m
+        )[0][0]
+        plt_point = [int(transformed_x), int(transformed_y)]
+        for i in range(len(images)):
+            if i != img_index:
+                m = imagesMatrix[i]
+                x, y = cv2.perspectiveTransform(
+                    np.array([[[transformed_x, transformed_y]]], dtype=np.float32),
+                    np.linalg.inv(m),
+                )[0][0]
+                points[i] = [int(x), int(y)]
+
+
+def main():
+    global TransformedMap, points, plt_point, images, image_in, DISPLAY_SIZE
+    for img_index, img in enumerate(images):
+        cv2.namedWindow(F"image{img_index}")
+        cv2.setMouseCallback(F"image{img_index}", Transform, {"img_index": img_index})
+    while True:
+        TransformedMap_copy = TransformedMap.copy()
+        for img_index, img in enumerate(images):
+            image = image_in[img_index].copy()
+            # Draw the points
+
+            cv2.circle(image, tuple(points[img_index]), 15, (0, 0, 255), -1)
+            image_out = cv2.resize(image, DISPLAY_SIZE)
+            cv2.imshow(F"image{img_index}", image_out)
+
+        cv2.circle(TransformedMap_copy, plt_point, 15, (0, 0, 255), -1)
+        cv2.imshow("Map", TransformedMap_copy)
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord("q"):
+            print("Quit")
+            return
+
+
 if __name__ == "__main__":
+    getAllMatrixAndTransformedImage()
     main()
