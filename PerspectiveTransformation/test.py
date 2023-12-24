@@ -21,7 +21,7 @@ imagesMatrix = [None for i in range(len(images))]
 # 轉換後地圖底圖
 TransformedMap = None
 
-DISPLAY_SIZE = (800, 600)
+DISPLAY_SIZE = (600, 400)
 
 
 def onMouse(event, x, y, flags, param):
@@ -29,7 +29,7 @@ def onMouse(event, x, y, flags, param):
     if event == cv2.EVENT_LBUTTONDOWN:
         img_index = param["img_index"]
         image = image_in[img_index].copy()
-        # 還原成原圖大小
+        # 還原成原圖x,y (因為傳入的是resize後的圖片，滑鼠點擊的位置)
         x = int(x * (image.shape[1] / DISPLAY_SIZE[0]))
         y = int(y * (image.shape[0] / DISPLAY_SIZE[1]))
         for i in range(4):
@@ -41,7 +41,8 @@ def onMouse(event, x, y, flags, param):
             intiPosition[img_index] = [[-1, -1], [-1, -1], [-1, -1], [-1, -1]]
 
 
-def getAllMatrixAndTransformedImage():
+### 讓每張圖都選擇四個點
+def inputPolygonPerImage():
     global image_in, intiPosition, imagesMatrix, TransformedMap
     for img_index, img in enumerate(images):
         cv2.namedWindow("image")
@@ -52,12 +53,12 @@ def getAllMatrixAndTransformedImage():
             for i in range(4):
                 if intiPosition[img_index][i][0] == -1:
                     break
-                cv2.circle(image, tuple(intiPosition[img_index][i]), 15, (0, 0, 255), -1)
+                cv2.circle(image, tuple(intiPosition[img_index][i]), 3, (0, 0, 255), -1)
             else:
                 # Draw the polygon
                 pts = np.array(intiPosition[img_index], np.int32)
                 pts = pts.reshape((-1, 1, 2))
-                cv2.polylines(image, [pts], True, (0, 255, 255), 3)
+                cv2.polylines(image, [pts], True, (0, 255, 255), 2)
             image_out = cv2.resize(image, DISPLAY_SIZE)
 
             # put text
@@ -66,34 +67,34 @@ def getAllMatrixAndTransformedImage():
                 "Click 4 points to make a polygon",
                 (10, 30),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                1,
+                0.5,
                 (0, 255, 0),
                 2,
             )
             cv2.putText(
                 image_out,
                 "Press 'c' to confirm",
-                (10, 60),
+                (10, 50),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                1,
+                0.5,
                 (0, 255, 0),
                 2,
             )
             cv2.putText(
                 image_out,
                 "Press 'r' to reset",
-                (10, 90),
+                (10, 70),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                1,
+                0.5,
                 (0, 255, 0),
                 2,
             )
             cv2.putText(
                 image_out,
                 "Press 'q' to quit",
-                (10, 120),
+                (10, 90),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                1,
+                0.5,
                 (0, 255, 0),
                 2,
             )
@@ -111,9 +112,12 @@ def getAllMatrixAndTransformedImage():
                 print("Polygon is rest")
             elif key == ord("q"):
                 cv2.destroyAllWindows()
-                return
-    # print(intiPosition)
-    # Perspective Transformation
+                exit()
+
+
+# 計算轉換矩陣
+def getAllMatrixAndTransformedImage():
+    global image_in, intiPosition, imagesMatrix, TransformedMap
     for img_index, img in enumerate(images):
         image = image_in[img_index].copy()
         pts1 = np.float32(intiPosition[img_index])
@@ -126,38 +130,49 @@ def getAllMatrixAndTransformedImage():
                 [targetPolygon[0], 0],
             ]
         )
+        # 計算轉換矩陣
         M = cv2.getPerspectiveTransform(pts1, pts2)
-        dst = cv2.warpPerspective(image, M, (targetPolygon[0], targetPolygon[1]))
         imagesMatrix[img_index] = M
+
+        # 等等展示用的地圖
         global TransformedMap
+        dst = cv2.warpPerspective(image, M, (targetPolygon[0], targetPolygon[1]))  # 轉換圖片到目標透視圖
         TransformedMap = dst
     cv2.destroyAllWindows()
 
 
+# 每張圖片對應的點
 points = [[-1, -1] for _ in range(len(images))]
+# 轉換後的圖片上的點
 plt_point = (0, 0)
 
 
+# 處理滑鼠點擊任意一張圖片時，其他圖片的點也會跟著轉換到對應位置
 def Transform(event, x, y, flags, param):
     global plt_point, points, imagesMatrix, image_in, DISPLAY_SIZE
     if event == cv2.EVENT_LBUTTONDOWN:
         img_index = param["img_index"]
         image = image_in[img_index].copy()
+        # 還原成原圖x,y (因為傳入的是resize後的圖片，滑鼠點擊的位置)
         x = int(x * (image.shape[1] / DISPLAY_SIZE[0]))
         y = int(y * (image.shape[0] / DISPLAY_SIZE[1]))
         points[img_index] = [x, y]
         m = imagesMatrix[img_index]
+        # 轉換到Map上的點
         transformed_x, transformed_y = cv2.perspectiveTransform(
             np.array([[[x, y]]], dtype=np.float32), m
         )[0][0]
+        # 更新Map上的點
         plt_point = [int(transformed_x), int(transformed_y)]
         for i in range(len(images)):
             if i != img_index:
                 m = imagesMatrix[i]
+                # 再從Map上的點轉換回來 (inverse Matrix)
                 x, y = cv2.perspectiveTransform(
                     np.array([[[transformed_x, transformed_y]]], dtype=np.float32),
                     np.linalg.inv(m),
                 )[0][0]
+                # 更新其他圖片上對應的點
                 points[i] = [int(x), int(y)]
 
 
@@ -171,12 +186,11 @@ def main():
         for img_index, img in enumerate(images):
             image = image_in[img_index].copy()
             # Draw the points
-
-            cv2.circle(image, tuple(points[img_index]), 15, (0, 0, 255), -1)
+            cv2.circle(image, tuple(points[img_index]), 3, (0, 0, 255), -1)
             image_out = cv2.resize(image, DISPLAY_SIZE)
             cv2.imshow(F"image{img_index}", image_out)
 
-        cv2.circle(TransformedMap_copy, plt_point, 15, (0, 0, 255), -1)
+        cv2.circle(TransformedMap_copy, plt_point, 3, (0, 0, 255), -1)
         cv2.imshow("Map", TransformedMap_copy)
         key = cv2.waitKey(1) & 0xFF
         if key == ord("q"):
@@ -185,5 +199,6 @@ def main():
 
 
 if __name__ == "__main__":
+    inputPolygonPerImage()
     getAllMatrixAndTransformedImage()
     main()
