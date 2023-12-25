@@ -2,7 +2,7 @@ from collections import defaultdict
 
 import cv2
 import numpy as np
-
+import os
 from ultralytics import YOLO
 import supervision as sv
 from supervision import Detections,BoxAnnotator
@@ -122,7 +122,7 @@ Ped_zones =[
 Ped_zone_annotators = [
     sv.PolygonZoneAnnotator(
         zone=zone,
-        color=Color(0,100,100),
+        color=colors.by_idx(index+4),
         thickness=4,
         text_thickness=8,
         text_scale=4
@@ -180,14 +180,14 @@ def update_plot_statistics():
         y2=mod(x2)
         p2=mod2(x2)
         c2=mod3(x2)
-        # plt.plot(x2,y2) 
-        # plt.plot(x2,p2) 
-        # plt.plot(x2,c2) 
+        plt.plot(x2,y2) 
+        plt.plot(x2,p2) 
+        plt.plot(x2,c2) 
     else:  
         pass            
-        # plt.plot(ax,ay)
-        # plt.plot(ax,a_ped)
-        # plt.plot(ax,a_car)        
+        plt.plot(ax,ay)
+        plt.plot(ax,a_ped)
+        plt.plot(ax,a_car)        
     plt.savefig('matplotlib_plot.png')
     plt.clf()
 def Pedestrian_Update(detections,annotated_frame):
@@ -196,7 +196,7 @@ def Pedestrian_Update(detections,annotated_frame):
     for zone, zone_annotator in zip(Ped_zones, Ped_zone_annotators):
         Total_in_area+=zone.current_count
         zone=zone.trigger(detections=detections)
-        #annotated_frame = zone_annotator.annotate(scene=frame)
+        annotated_frame = zone_annotator.annotate(scene=frame)
         detection_temp=detections[zone]#取出該區域的物件
         Pedestrian_Area.append(detection_temp)#把該區域的物件加入list
     detections=sv.Detections.merge(Pedestrian_Area)#最後把區域的物整合 (如果無號誌合併行人區斑馬線區)
@@ -220,7 +220,7 @@ def InCrossRoad_Update(detections,annotated_frame):
 with sv.VideoSink(target_path='abc.mp4', video_info=video_info) as sink:
     while cap.isOpened():
         ret, frame = cap.read()
-        results=model.predict(frame,conf=0.5)[0]#可設定最小要幾趴 aka threshold
+        results=model.predict(frame,conf=0.3)[0]#可設定最小要幾趴 aka threshold
         
         #SET FLAG
         IS_WAIT_FLAG=False
