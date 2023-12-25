@@ -29,7 +29,7 @@ frame_count=0
 #opencv
 close_mask=0
 # Load the YOLOv8 model
-model = YOLO('./PedestrianVehicleDetection/model/vir.pt')
+model = YOLO('./model/vir.pt')
 #print(model.fuse())
 
 # Open the video file
@@ -58,7 +58,7 @@ testline_annotator = sv.LineZoneAnnotator()
 #poly
 
 
-f = open('./PedestrianVehicleDetection/polygon.txt', 'r')
+f = open('./polygon.txt', 'r')
 p=f.read()
 #############some flag variables
 TRAFFIC_FLAG=False
@@ -220,7 +220,7 @@ def InCrossRoad_Update(detections,annotated_frame):
 with sv.VideoSink(target_path='abc.mp4', video_info=video_info) as sink:
     while cap.isOpened():
         ret, frame = cap.read()
-        results=model.predict(frame,conf=0.3)[0]#可設定最小要幾趴 aka threshold
+        results=model.predict(frame,conf=0.5,verbose=False)[0] #可設定最小要幾趴 aka threshold
         
         #SET FLAG
         IS_WAIT_FLAG=False
@@ -237,7 +237,6 @@ with sv.VideoSink(target_path='abc.mp4', video_info=video_info) as sink:
                 pedestrian_count+=1
         #這個code大概隔週看就忘嘞x
         
-        
         if close_mask==0:#更新斑馬線區
             detections_i,Total_in_area,annotated_frame,incrossRoad=InCrossRoad_Update(detections_origin,frame)
             #detections_i所有在斑馬線區的物件
@@ -245,7 +244,7 @@ with sv.VideoSink(target_path='abc.mp4', video_info=video_info) as sink:
             #detections_p所有在行人區的物件
             detections=sv.Detections.merge([detections_i,detections_p])
             #如果有號誌only斑馬線區
-        
+
         detections = tracker.update_with_detections(detections)
         # annotated_frame = trace_annotator.annotate(#標記追蹤線
         #     scene=annotated_frame,
@@ -328,11 +327,11 @@ with sv.VideoSink(target_path='abc.mp4', video_info=video_info) as sink:
         
         #plt.pause(0.0100000001)        
         #plt.ioff()
-        update_plot_statistics()
+        # update_plot_statistics()
         
         #sink.write_frame(frame=annotated_frame)
         annotated_frame=plot_update(annotated_frame)
-        print(frame_count)
+        # print(frame_count)
         starttime=time.time()
         plt.clf()
         cv2.imshow('frame', annotated_frame)

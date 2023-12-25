@@ -6,7 +6,7 @@ import plate
 model = YOLO('./best.pt')
 
 # Open the video file
-video_path = "IMG_5222.mp4"
+video_path = "IMG_5251.MOV"
 cap = cv2.VideoCapture(video_path)
 
 # Loop through the video frames
@@ -42,7 +42,8 @@ while cap.isOpened():
             # combine images into a single image
             for i in range(len(Plates)):
                 Plates[i] = cv2.resize(Plates[i], (200, 200))
-        plate.get_all_plates(Plates)
+
+
 
 
 
@@ -51,6 +52,10 @@ while cap.isOpened():
         key = cv2.waitKey(1) & 0xFF
         if key == ord("q"):
             break
+        elif key == ord("s"):
+            plate.get_all_plates(Plates)
+        elif key == ord("c"): # skip 5 sec
+            cap.set(cv2.CAP_PROP_POS_FRAMES, cap.get(cv2.CAP_PROP_POS_FRAMES) + 150)
 
     else:
         # Break the loop if the end of the video is reached
