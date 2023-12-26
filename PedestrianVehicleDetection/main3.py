@@ -215,7 +215,7 @@ def InCrossRoad_Update(detections, annotated_frame):
 with sv.VideoSink(target_path='abc.mp4', video_info=video_info) as sink:
     while cap.isOpened():
         ret, frame = cap.read()
-        if not ret:
+        if not ret: # 如果沒有讀到frame就跳出
             break
         results = model.predict(frame, conf=0.5, verbose=False)[0]  # 可設定最小要幾趴 aka threshold
 
