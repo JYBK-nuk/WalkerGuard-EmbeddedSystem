@@ -1,11 +1,5 @@
 import 'package:flutter/material.dart';
-
 import 'settings_controller.dart';
-
-/// Displays the various settings that can be customized by the user.
-///
-/// When a user changes a setting, the SettingsController is updated and
-/// Widgets that listen to the SettingsController are rebuilt.
 class SettingsView extends StatelessWidget {
   const SettingsView({super.key, required this.controller});
 
@@ -17,34 +11,45 @@ class SettingsView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: const Text('設定'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        // Glue the SettingsController to the theme selection DropdownButton.
-        //
-        // When a user selects a theme from the dropdown list, the
-        // SettingsController is updated, which rebuilds the MaterialApp.
-        child: DropdownButton<ThemeMode>(
-          // Read the selected themeMode from the controller
-          value: controller.themeMode,
-          // Call the updateThemeMode method any time the user selects a theme.
-          onChanged: controller.updateThemeMode,
-          items: const [
-            DropdownMenuItem(
-              value: ThemeMode.system,
-              child: Text('System Theme'),
+      body: ListView(
+        children: [
+          ListTile(
+            title: const Text('主題'),
+            subtitle: const Text('應用程式主題'),
+            trailing: DropdownButton<ThemeMode>(
+              value: controller.themeMode,
+              onChanged: controller.updateThemeMode,
+              items: const [
+                DropdownMenuItem(
+                  value: ThemeMode.system,
+                  child: Text('跟隨系統'),
+                ),
+                DropdownMenuItem(
+                  value: ThemeMode.light,
+                  child: Text('亮色主題'),
+                ),
+                DropdownMenuItem(
+                  value: ThemeMode.dark,
+                  child: Text('暗色主題'),
+                )
+              ],
             ),
-            DropdownMenuItem(
-              value: ThemeMode.light,
-              child: Text('Light Theme'),
+          ),
+
+          ListTile(
+            title: const Text('API 連結'),
+            subtitle: const Text('API url 連結'),
+            trailing: TextField(
+              onChanged: controller.updateApiUrl,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                labelText: 'API 連結',
+              ),
             ),
-            DropdownMenuItem(
-              value: ThemeMode.dark,
-              child: Text('Dark Theme'),
-            )
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

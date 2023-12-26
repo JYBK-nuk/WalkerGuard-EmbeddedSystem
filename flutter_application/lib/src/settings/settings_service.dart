@@ -14,4 +14,11 @@ class SettingsService {
     // Use the shared_preferences package to persist settings locally or the
     // http package to persist settings over the network.
   }
+
+  Future<String> apiUrl() async => 'https://api.example.com';
+
+  Future<void> updateApiUrl(String apiUrl) async {
+    // Use the shared_preferences package to persist settings locally or the
+    // http package to persist settings over the network.
+  }
 }
