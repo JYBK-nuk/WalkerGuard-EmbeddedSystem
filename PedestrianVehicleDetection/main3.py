@@ -71,7 +71,7 @@ IS_RED = False
 #############斑馬線區域
 polygon_np = [
     # np.array([[149, 287], [124, 247], [411, 130], [479, 139]]),
-    np.array([[816, 186], [1224, 298], [1064, 710], [644, 714], [388, 562]]),
+    np.array([[770, 230], [1224, 340], [1064, 710], [644, 714], [388, 562]]),
 ]
 zones = [
     sv.PolygonZone(polygon=polygon, frame_resolution_wh=video_info.resolution_wh)
@@ -125,10 +125,12 @@ def moving_avg(x, n):
 
 def traffic(val):
     global TRAFFIC_FLAG
-    if val != 0:
-        TRAFFIC_FLAG = 1
-    else:
+    if val == 0:
+        TRAFFIC_FLAG = -1
+    elif val == 1:
         TRAFFIC_FLAG = 0
+    elif val == 2:
+        TRAFFIC_FLAG = 1
 
 
 def test(val):
@@ -330,7 +332,24 @@ with sv.VideoSink(target_path='abc.mp4', video_info=video_info) as sink:
         print("------------------")
         for incross in incrossRoad:  # 每區的斑馬線個別確認有沒有車 避免a沒人 b區有人 可是a區車通過被誤判
             classes_incross = [class_list[i] for i in incross.class_id]
-            classes_inwait = [class_list[i] for i in detections_p.class_id]
+            classes_inwait = [
+                class_list[i] for i in detections_p.class_id
+            ]  # 另一條斑馬線沒等待區? 我先做單條斑馬線判斷就好
+            if TRAFFIC_FLAG == 0 or TRAFFIC_FLAG == 1:  # 有號誌
+                if TRAFFIC_FLAG == 0:  # 行人紅燈
+                    if "car" in classes_incross and "pedestrian" in classes_incross:
+                        print("有車違規-行人紅燈-有人還沒過完")
+                elif TRAFFIC_FLAG == 1:  # 行人綠燈
+                    if "car" in classes_incross and (
+                        "pedestrian" in classes_incross or "pedestrian" in classes_inwait
+                    ):
+                        print("有車違規-行人綠燈-有人還沒過完或是有人在等待")
+            else:  # 無號誌
+                if "car" in classes_incross and (
+                    "pedestrian" in classes_incross or "pedestrian" in classes_inwait
+                ):
+                    print("有車違規-無號誌模式-有人還沒過完或是有人在等待")
+
             # print(
             #     "\n".join(
             #         [
@@ -380,8 +399,7 @@ with sv.VideoSink(target_path='abc.mp4', video_info=video_info) as sink:
         if frame_count == 1:
             cv2.createTrackbar('Right-0-CloseMask', 'GUI', 0, 1, test)
             cv2.createTrackbar('PLOT_DISABLE', 'GUI', 0, 1, test)
-            cv2.createTrackbar('traffic_signal', 'GUI', 0, 1, test)
-            cv2.createTrackbar('red_green', 'GUI', 0, 1, test)
+            cv2.createTrackbar('off red green', 'GUI', 0, 2, traffic)
         key = cv2.waitKey(1) & 0xFF
         if key == ord("q"):
             break
