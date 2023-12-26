@@ -8,9 +8,10 @@
     <div id="app" style="display: flex">
       <button @click="connect()">Connect</button>
       <div>
-        <video ref="videoElement" autoplay></video>
+        <video ref="videoElement" autoplay playsinline></video>
         <canvas ref="canvasElement" style="display: none"></canvas>
       </div>
+      {{str}}
       <div class="history">
         <div v-for="image in images.slice().reverse()">
           <img :src="image" />
@@ -30,18 +31,26 @@
             canvas: null,
             ws: null,
             images: [],
+            str: "",
           };
         },
         mounted() {
           this.video = this.$refs.videoElement;
           this.canvas = this.$refs.canvasElement;
 
-          this.connect();
           // Get user media and display the video stream in the video element
           navigator.mediaDevices
-            .getUserMedia({ video: true })
+            .getUserMedia({
+              video: {
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+                facingMode: { exact: "environment" },
+              },
+              audio: false,
+            })
             .then((stream) => {
               this.video.srcObject = stream;
+              this.init();
             })
             .catch((error) => {
               console.error("Error accessing camera:", error);
@@ -52,6 +61,10 @@
           }, 100);
         },
         methods: {
+          async init() {
+            console.log(await navigator.mediaDevices.enumerateDevices());
+            this.str = await navigator.mediaDevices.enumerateDevices();
+          },
           connect() {
             if (this.ws) {
               this.ws.close();

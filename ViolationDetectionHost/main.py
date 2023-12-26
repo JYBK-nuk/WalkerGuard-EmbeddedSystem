@@ -59,7 +59,7 @@ def show_image(images):
         cv2.namedWindow("Image", cv2.WINDOW_NORMAL)
         cv2.imshow("Image", image)
         cv2.waitKey(0)
-    cv2.destroyAllWindows() 
+    cv2.destroyAllWindows()
 
 
 @app.get("/ios")
@@ -68,4 +68,9 @@ async def web():
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=80, reload=True)
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=80,
+        reload=True,
+    )

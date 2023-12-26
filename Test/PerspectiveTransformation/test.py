@@ -7,10 +7,9 @@ import matplotlib.pyplot as plt
 intiPosition = [
     [[-1, -1], [-1, -1], [-1, -1], [-1, -1]],
     [[-1, -1], [-1, -1], [-1, -1], [-1, -1]],
-    [[-1, -1], [-1, -1], [-1, -1], [-1, -1]],
 ]
 targetPolygon = [400, 300]
-images = ["./images/1.png", "./images/2.png", "./images/3.png"]
+images = ["./images/5.png", "./images/6.png"]
 
 image_in = [cv2.imread(img) for img in images]
 image_in = [cv2.resize(img, (800, 600)) for img in image_in]
@@ -21,7 +20,7 @@ imagesMatrix = [None for i in range(len(images))]
 # 轉換後地圖底圖
 TransformedMap = None
 
-DISPLAY_SIZE = (600, 400)
+DISPLAY_SIZE = (1600, 900)
 
 
 def onMouse(event, x, y, flags, param):
