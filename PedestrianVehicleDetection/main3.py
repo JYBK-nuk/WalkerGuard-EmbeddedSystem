@@ -1,4 +1,6 @@
 from collections import defaultdict
+import pprint
+from typing import Dict
 
 import cv2
 import numpy as np
@@ -13,6 +15,8 @@ from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from scipy.interpolate import make_interp_spline
+from supervision import Position
+import datetime
 import time
 
 ############some variables initialization
@@ -85,9 +89,12 @@ zone_box_annotators = [
     )
     for index in range(len(polygon_np))
 ]
-zone_TRACK_annotators = [sv.ByteTrack() for index in range(len(polygon_np))]
+zone_TRACK_annotators = [sv.ByteTrack(0.25, 90, 0.7, 30) for index in range(len(polygon_np))]
 zone_trac_annotators = [
-    sv.TraceAnnotator(color=colors.by_idx(index)) for index in range(len(polygon_np))
+    sv.TraceAnnotator(
+        color=colors.by_idx(index), position=Position.BOTTOM_CENTER, trace_length=30 * 10
+    )
+    for index in range(len(polygon_np))
 ]
 #############行人等待區區域
 Pedestrian_Poly = [
@@ -98,12 +105,15 @@ Ped_zones = [
     sv.PolygonZone(polygon=polygon, frame_resolution_wh=video_info.resolution_wh)
     for polygon in Pedestrian_Poly
 ]
+Ped_TRACK_annotators = [sv.ByteTrack() for index in range(len(Pedestrian_Poly))]
 Ped_zone_annotators = [
     sv.PolygonZoneAnnotator(
-        zone=zone, color=colors.by_idx(index + 4), thickness=2, text_thickness=5, text_scale=2
+        zone=zone, color=colors.by_idx(index + 4), thickness=2, text_thickness=1, text_scale=1
     )
     for index, zone in enumerate(Ped_zones)
 ]
+
+waiting_ped: Dict[int, datetime.datetime] = defaultdict(lambda: datetime.datetime.now())
 
 
 ######################
@@ -178,15 +188,42 @@ def update_plot_statistics():
 def Pedestrian_Update(detections, annotated_frame):
     Pedestrian_Area = []  # 如果有多個區域 其實就是把每個區域個別抓出來
     Total_in_area = 0
-    for zone, zone_annotator in zip(Ped_zones, Ped_zone_annotators):
+    current_tracker_id = []
+    for zone, trackv, zone_annotator in zip(Ped_zones, Ped_TRACK_annotators, Ped_zone_annotators):
         Total_in_area += zone.current_count
         zone = zone.trigger(detections=detections)
-        count_for_pedestrian = len([i for i in detections.class_id if i == 0])
+        detection_temp: Detections = detections[zone]  # 取出該區域的物件
+        detection_temp = trackv.update_with_detections(detection_temp)
+
+        detections_ = []
+        for xyxy, mask, confidence, class_id, tracker_id in detection_temp:
+            current_tracker_id.append(tracker_id)
+            if waiting_ped[tracker_id] + datetime.timedelta(seconds=2) < datetime.datetime.now():
+                detections_.append([xyxy, mask, confidence, class_id, tracker_id])
+        # print(detections_)
+        try:
+            detections_ = sv.Detections(
+                xyxy=np.array([x[0] for x in detections_]),
+                confidence=np.array([x[2] for x in detections_]),
+                class_id=np.array([x[3] for x in detections_]),
+                tracker_id=np.array([x[4] for x in detections_]),
+            )
+
+            count_for_pedestrian = len([i for i in detections_.class_id if i == 0])
+
+            # boxing in this zone pedestrian
+            annotated_frame = box_annotator.annotate(scene=annotated_frame, detections=detections_)
+
+            Pedestrian_Area.append(detections_)  # 把該區域的物件加入list
+        except:
+            count_for_pedestrian = 0
+            pass
         annotated_frame = zone_annotator.annotate(
-            scene=frame, label="Waiting" if count_for_pedestrian > 0 else "No Wait"
+            scene=annotated_frame, label="Waiting" if count_for_pedestrian > 0 else "No Wait"
         )
-        detection_temp = detections[zone]  # 取出該區域的物件
-        Pedestrian_Area.append(detection_temp)  # 把該區域的物件加入list
+    for tracker_id in list(waiting_ped.keys()):
+        if tracker_id not in current_tracker_id:
+            waiting_ped.pop(tracker_id)
     detections = sv.Detections.merge(Pedestrian_Area)  # 最後把區域的物整合 (如果無號誌合併行人區斑馬線區)
     detections_InCrossRoad = sv.Detections.merge(Pedestrian_Area)
     return detections, Total_in_area, annotated_frame
@@ -215,9 +252,9 @@ def InCrossRoad_Update(detections, annotated_frame):
 with sv.VideoSink(target_path='abc.mp4', video_info=video_info) as sink:
     while cap.isOpened():
         ret, frame = cap.read()
-        if not ret: # 如果沒有讀到frame就跳出
+        if not ret:  # 如果沒有讀到frame就跳出
             break
-        results = model.predict(frame, conf=0.5, verbose=False)[0]  # 可設定最小要幾趴 aka threshold
+        results = model.predict(frame, conf=0.4, verbose=False)[0]  # 可設定最小要幾趴 aka threshold
 
         # SET FLAG
         IS_WAIT_FLAG = False
