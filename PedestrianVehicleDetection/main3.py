@@ -71,7 +71,7 @@ IS_RED = False
 #############斑馬線區域
 polygon_np = [
     # np.array([[149, 287], [124, 247], [411, 130], [479, 139]]),
-    np.array([[770, 230], [1224, 340], [1064, 710], [644, 714], [388, 562]]),
+    np.array([[770, 215], [1224, 330], [1064, 710], [644, 714], [388, 562]]),
 ]
 zones = [
     sv.PolygonZone(polygon=polygon, frame_resolution_wh=video_info.resolution_wh)
@@ -349,6 +349,12 @@ with sv.VideoSink(target_path='abc.mp4', video_info=video_info) as sink:
                     "pedestrian" in classes_incross or "pedestrian" in classes_inwait
                 ):
                     print("有車違規-無號誌模式-有人還沒過完或是有人在等待")
+
+                # TODO 
+                # 取得違規的車輛tracker_id
+                # 登記違規 (之後排除重複違規)
+                # 用tracker_id去找違規車輛的 trace
+                # TraceAnnotator.trace.get(tracker_id) -> [[x,y]....]
 
             # print(
             #     "\n".join(
