@@ -75,7 +75,7 @@ zones = [
 ]
 zone_annotators = [
     sv.PolygonZoneAnnotator(
-        zone=zone, color=colors.by_idx(index), thickness=4, text_thickness=8, text_scale=4
+        zone=zone, color=colors.by_idx(index), thickness=2, text_thickness=5, text_scale=2
     )
     for index, zone in enumerate(zones)
 ]
@@ -100,7 +100,7 @@ Ped_zones = [
 ]
 Ped_zone_annotators = [
     sv.PolygonZoneAnnotator(
-        zone=zone, color=colors.by_idx(index + 4), thickness=4, text_thickness=8, text_scale=4
+        zone=zone, color=colors.by_idx(index + 4), thickness=2, text_thickness=5, text_scale=2
     )
     for index, zone in enumerate(Ped_zones)
 ]
@@ -181,7 +181,10 @@ def Pedestrian_Update(detections, annotated_frame):
     for zone, zone_annotator in zip(Ped_zones, Ped_zone_annotators):
         Total_in_area += zone.current_count
         zone = zone.trigger(detections=detections)
-        annotated_frame = zone_annotator.annotate(scene=frame, label="")
+        count_for_pedestrian = len([i for i in detections.class_id if i == 0])
+        annotated_frame = zone_annotator.annotate(
+            scene=frame, label="Waiting" if count_for_pedestrian > 0 else "No Wait"
+        )
         detection_temp = detections[zone]  # 取出該區域的物件
         Pedestrian_Area.append(detection_temp)  # 把該區域的物件加入list
     detections = sv.Detections.merge(Pedestrian_Area)  # 最後把區域的物整合 (如果無號誌合併行人區斑馬線區)
@@ -212,6 +215,8 @@ def InCrossRoad_Update(detections, annotated_frame):
 with sv.VideoSink(target_path='abc.mp4', video_info=video_info) as sink:
     while cap.isOpened():
         ret, frame = cap.read()
+        if not ret:
+            break
         results = model.predict(frame, conf=0.5, verbose=False)[0]  # 可設定最小要幾趴 aka threshold
 
         # SET FLAG
@@ -274,17 +279,30 @@ with sv.VideoSink(target_path='abc.mp4', video_info=video_info) as sink:
                     distance = np.sqrt(
                         (anchor_pre_x - anchor_now_x) ** 2 + (anchor_pre_y - anchor_now_y) ** 2
                     )
-                    if distance < 0.15:
+                    if distance == 0:  # 迷失追蹤
+                        continue
+                    elif distance < 0.15:
+                        pass
                         # print('有人停下來了')
-                        if distance < 0.05:
-                            IS_WAIT_FLAG = True
-                            # print('有人超級趨近於0')
+                    elif distance < 0.05:
+                        IS_WAIT_FLAG = True
+                        print('有人超級趨近於0')
                     # print(distance)
                 # print(last_tracker_id)
                 last_xyxy = detections_p_previous.xyxy
         print("------------------")
         for incross in incrossRoad:  # 每區的斑馬線個別確認有沒有車 避免a沒人 b區有人 可是a區車通過被誤判
-            print(incross.class_id)
+            classes_incross = [class_list[i] for i in incross.class_id]
+            classes_inwait = [class_list[i] for i in detections_p.class_id]
+            # print(
+            #     "\n".join(
+            #         [
+            #             F"{name}:{len([x for x in classes_incross if x == name])}"
+            #             for name in class_list.values()
+            #             if len([x for x in classes_incross if x == name]) != 0
+            #         ]
+            #     )
+            # )
 
         # for element in detections.class_id:
         #     if class_list[element]!='pedestrian' : #有'pedestrian' 跟 'people' 但people連機車上的人也會偵測 但行人不會被誤判
