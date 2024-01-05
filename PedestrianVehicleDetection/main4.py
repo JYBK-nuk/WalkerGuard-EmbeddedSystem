@@ -27,6 +27,7 @@ colors = sv.ColorPalette.default()
 class WalkerGuard:
     detector: Detector
     tracker = {}
+    violate_history = {}
 
     def __init__(self, model_path: str, window: Window, video_info):
         self.detector = Detector(model_path)
@@ -61,7 +62,7 @@ class WalkerGuard:
             detections,
             annotated_frame,
             byTime=2,
-            class_name=["people"],
+            class_name=["people", "pedestrian"],
             labelFunc=lambda x: "Waiting" if x > 0 else "Nobody",
         )
         self.detections_pedestrians_waiting = temp[0]  # [Detections, Detections, ...]
@@ -70,7 +71,7 @@ class WalkerGuard:
             detections,
             annotated_frame,
             byTime=0,
-            class_name=["people"],
+            class_name=["pedestrian"],
             labelFunc=lambda x: "Crossing" if x > 0 else "Nobody",
         )
 
@@ -89,7 +90,30 @@ class WalkerGuard:
 
         return annotated_frame
 
+    def getViolateVehicle(self, signal="行人紅燈"):
+        if signal == "行人紅燈":
+            if (
+                len(self.detections_vehicle_entered) > 0
+                and len(self.detections_pedestrians_crossing) > 0
+            ):
+                # 行人紅燈 但還有行人還在過馬路
+                pass
+        elif signal == "行人綠燈":
+            if len(self.detections_vehicle_entered) > 0 and (
+                len(self.detections_pedestrians_waiting) > 0
+                or len(self.detections_pedestrians_crossing) > 0
+            ):
+                # 行人綠燈 但有車無停下等行人通過
+                pass
+        elif signal == "無號誌":
+            if len(self.detections_vehicle_entered) > 0 and (
+                len(self.detections_pedestrians_waiting) > 0
+                or len(self.detections_pedestrians_crossing) > 0
+            ):
+                # 無號誌 但有車無停下等行人通過
+                pass
 
+        return self.detections_vehicle_entered
 
 
 window = Window("Preview")
@@ -112,9 +136,11 @@ def main():
         if ret:
             detections, results = walkerGuard.detector.detect(frame, conf=0.2, verbose=False)
             frame = triangleA_annotator.annotate(frame, detections)
+            # Detection every area's objects
             image = walkerGuard.update(frame, detections)
-            window.update(image)
+            # Violate the objects
 
+            window.update(image)
             if window.key == ord('s'):
                 # skip 5 seconds
                 cap.set(cv2.CAP_PROP_POS_FRAMES, cap.get(cv2.CAP_PROP_POS_FRAMES) + 5 * 30)
