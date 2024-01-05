@@ -116,16 +116,16 @@ public class DemoApplication {
 
 		// 取得違規紀錄
 		@PostMapping("/record")
-		// 印出當前路徑
-		File recordFile = new File(
-				"deliver_photo\\demo\\src\\main\\resources\\static\\record\\1.json");
-
-		File file1;
-		File file2;
-		// 讀取JSON檔案
-
-		ObjectMapper mapper = new ObjectMapper();
-		Record record = mapper.readValue(recordFile, Record.class);
+		public void handleRecord() {
+			File recordFile = new File("deliver_photo\\demo\\src\\main\\resources\\static\\record\\1.json");
+			ObjectMapper mapper = new ObjectMapper();
+			try {
+				Record record = mapper.readValue(recordFile, Record.class);
+				// 在這裡處理 record
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
 
 	}
 
