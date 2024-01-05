@@ -3,14 +3,14 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-
+import os
 intiPosition = [
     [[-1, -1], [-1, -1], [-1, -1], [-1, -1]],
     [[-1, -1], [-1, -1], [-1, -1], [-1, -1]],
     [[-1, -1], [-1, -1], [-1, -1], [-1, -1]],
 ]
 targetPolygon = [400, 300]
-images = ["./images/1.png", "./images/2.png", "./images/3.png"]
+images = ["./images/4.png", "./images/5.png", "./images/6.png"]
 
 image_in = [cv2.imread(img) for img in images]
 image_in = [cv2.resize(img, (800, 600)) for img in image_in]
