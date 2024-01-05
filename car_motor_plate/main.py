@@ -6,7 +6,7 @@ import plate
 model = YOLO('./best.pt')
 
 # Open the video file
-video_path = "IMG_5251.MOV"
+video_path = 1
 cap = cv2.VideoCapture(video_path)
 
 # Loop through the video frames
@@ -43,7 +43,7 @@ while cap.isOpened():
             for i in range(len(Plates)):
                 Plates[i] = cv2.resize(Plates[i], (200, 200))
 
-
+        plate.get_all_plates(Plates)
 
 
 
