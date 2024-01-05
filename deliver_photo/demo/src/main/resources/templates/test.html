@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Camera Capture with Vue 3</title>
+    <script src="https://unpkg.com/vue@next"></script>
+  </head>
+
+  <body>
+    <div id="app">
+      <canvas ref="canvas"></canvas>
+
+      <div>
+        Points:
+        <div v-for="point in points">{{ point.x }}, {{ point.y }}</div>
+      </div>
+      <button @click="reset">reset</button>
+      <button @click="postPoints">post</button>
+      <hr />
+      <h1>違規紀錄</h1>
+      <img :src="imageSrc1" />
+      <img :src="imageSrc2" />
+    </div>
+
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.5.0/jszip.min.js"
+    >
+
+      const app = Vue.createApp({
+        data() {
+          return {
+            imageUrl: "",
+            points: [],
+            wh: [0, 0],
+            imageSrc1: "",
+            imageSrc2: "",
+          };
+        },
+
+        mounted() {
+          this.getImage();
+          this.getRecord();
+        },
+
+        methods: {
+          async getImage() {
+            const response = await fetch("http://localhost:8080/image/1", {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              mode: "cors",
+            });
+            const blob = await response.blob();
+
+            this.imageUrl = URL.createObjectURL(blob);
+            const ctx = this.$refs.canvas.getContext("2d");
+            console.log(this.imageUrl);
+            const img = new Image();
+            img.onload = () => {
+              ctx.canvas.width = 300;
+              ctx.canvas.height = (img.height * 300) / img.width;
+              wh = [img.width, img.height];
+              ctx.drawImage(img, 0, 0, ctx.canvas.width, ctx.canvas.height);
+            };
+
+            img.src = this.imageUrl;
+            this.$refs.canvas.addEventListener("click", this.addPoint);
+          },
+          async postPoints() {
+            const response = await fetch("http://localhost:8080/points", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              mode: "cors",
+              body: JSON.stringify(this.points),
+            });
+          },
+          addPoint(e) {
+            if (this.points.length >= 4) {
+              return;
+            }
+            const ctx = this.$refs.canvas.getContext("2d");
+            const orangeX = (e.offsetX / ctx.canvas.width) * wh[0];
+            const orangeY = (e.offsetY / ctx.canvas.height) * wh[1];
+            console.log(wh);
+            this.points.push({
+              // convert to int
+              x: Math.round(orangeX),
+              y: Math.round(orangeY),
+            });
+            //draw a circle fill with radius 5
+
+            ctx.beginPath();
+            ctx.arc(e.offsetX, e.offsetY, 5, 0, 2 * Math.PI);
+            ctx.fillStyle = "red";
+            ctx.fill();
+          },
+          //reset the canvas and points
+          reset() {
+            this.points = [];
+            const ctx = this.$refs.canvas.getContext("2d");
+            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+            this.getImage();
+          },
+          async getRecord() {
+            const response = await fetch("http://localhost:8080/record", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              mode: "cors",
+            });
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            } else {
+              const blob = await response.blob();
+              const zip = await JSZip.loadAsync(blob);
+              const file1 = zip.files["file1.jpg"];
+              const file2 = zip.files["file2.jpg"];
+              const blob1 = await file1.async("blob");
+              const blob2 = await file2.async("blob");
+
+              const reader1 = new FileReader();
+              reader1.onloadend = () => {
+                this.imageSrc1 = reader1.result;
+              };
+              reader1.readAsDataURL(blob1);
+
+              const reader2 = new FileReader();
+              reader2.onloadend = () => {
+                this.imageSrc2 = reader2.result;
+              };
+              reader2.readAsDataURL(blob2);
+            }
+            console.log(this.imageSrc1);
+          },
+        },
+      });
+
+      app.mount("#app");
+    </script>
+  </body>
+</html>
