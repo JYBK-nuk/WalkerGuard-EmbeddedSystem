@@ -37,7 +37,7 @@ model = YOLO('./model/vir.pt')
 # print(model.fuse())
 
 # Open the video file
-video_path = "./video/japan.mp4"
+video_path = "./video/WIN_20231229_11_33_12_Pro.mp4"
 video_info = sv.VideoInfo.from_video_path(video_path=video_path)
 print(video_info)
 
@@ -251,165 +251,164 @@ def InCrossRoad_Update(detections, annotated_frame):
     return detections, Total_in_area, annotated_frame, InCrossRoad  # 回傳各區斑馬線的detection 因為要分開做追蹤
 
 
-with sv.VideoSink(target_path='abc.mp4', video_info=video_info) as sink:
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:  # 如果沒有讀到frame就跳出
-            break
-        results = model.predict(frame, conf=0.4, verbose=False)[0]  # 可設定最小要幾趴 aka threshold
+while cap.isOpened():
+    ret, frame = cap.read()
+    if not ret:  # 如果沒有讀到frame就跳出
+        break
+    results = model.predict(frame, conf=0.4, verbose=False)[0]  # 可設定最小要幾趴 aka threshold
 
-        # SET FLAG
-        IS_WAIT_FLAG = False
+    # SET FLAG
+    IS_WAIT_FLAG = False
 
-        detections = sv.Detections.from_ultralytics(results)  # 取得偵測到的物件
-        detections_origin = detections  # 原始的detections存一個備用
-        pedestrian_count = 0
-        car_count = 0
+    detections = sv.Detections.from_ultralytics(results)  # 取得偵測到的物件
+    detections_origin = detections  # 原始的detections存一個備用
+    pedestrian_count = 0
+    car_count = 0
 
-        for element in detections.class_id:
-            if class_list[element] != 'pedestrian':
-                car_count += 1
-            else:
-                pedestrian_count += 1
-        # 這個code大概隔週看就忘嘞x
+    for element in detections.class_id:
+        if class_list[element] != 'pedestrian':
+            car_count += 1
+        else:
+            pedestrian_count += 1
+    # 這個code大概隔週看就忘嘞x
 
-        if close_mask == 0:  # 更新斑馬線區
-            detections_i, Total_in_area, annotated_frame, incrossRoad = InCrossRoad_Update(
-                detections_origin, frame
-            )
-            # detections_i所有在斑馬線區的物件
-            detections_p, Total_in_area2, annotated_frame = Pedestrian_Update(
-                detections_origin, annotated_frame
-            )
-            # detections_p所有在行人區的物件
-            detections = sv.Detections.merge([detections_i, detections_p])
-            # 如果有號誌only斑馬線區
+    if close_mask == 0:  # 更新斑馬線區
+        detections_i, Total_in_area, annotated_frame, incrossRoad = InCrossRoad_Update(
+            detections_origin, frame
+        )
+        # detections_i所有在斑馬線區的物件
+        detections_p, Total_in_area2, annotated_frame = Pedestrian_Update(
+            detections_origin, annotated_frame
+        )
+        # detections_p所有在行人區的物件
+        detections = sv.Detections.merge([detections_i, detections_p])
+        # 如果有號誌only斑馬線區
 
-        detections = tracker.update_with_detections(detections)
-        # annotated_frame = trace_annotator.annotate(#標記追蹤線
-        #     scene=annotated_frame,
-        #     detections=detections,
-        # )
-        # labels = [
-        #     f"{results.names[class_id]}{confidence:0.2f}#{tracker_id}"
-        #     for xyxy,mask,confidence,class_id,tracker_id
-        #     in detections
-        # ]
+    detections = tracker.update_with_detections(detections)
+    # annotated_frame = trace_annotator.annotate(#標記追蹤線
+    #     scene=annotated_frame,
+    #     detections=detections,
+    # )
+    # labels = [
+    #     f"{results.names[class_id]}{confidence:0.2f}#{tracker_id}"
+    #     for xyxy,mask,confidence,class_id,tracker_id
+    #     in detections
+    # ]
 
-        # annotated_frame = label_annotator.annotate(#標記 名稱阿 id阿 在label裡自訂義
-        #     scene=annotated_frame,
-        #     detections=detections,
-        #     labels=labels
-        # )
+    # annotated_frame = label_annotator.annotate(#標記 名稱阿 id阿 在label裡自訂義
+    #     scene=annotated_frame,
+    #     detections=detections,
+    #     labels=labels
+    # )
 
-        # 到時加if 行人數量>2且通過就警示
-        detections_p = tracker.update_with_detections(detections_p)
-        if frame_count != 0:
-            for xyxy, mask, confidence, class_id, tracker_id in detections_p:
-                last_tracker_id = detections_p_previous.tracker_id
-                anchor_now_x = xyxy[2] - xyxy[0]
-                anchor_now_y = xyxy[3] - xyxy[1]
-                # print(anchor_now_x,anchor_now_y)
-                if tracker_id in last_tracker_id:
-                    index = list(last_tracker_id).index(tracker_id)
-                    last_xyxy = detections_p_previous.xyxy[index]
-                    anchor_pre_x = last_xyxy[2] - last_xyxy[0]
-                    anchor_pre_y = last_xyxy[3] - last_xyxy[1]
-                    distance = np.sqrt(
-                        (anchor_pre_x - anchor_now_x) ** 2 + (anchor_pre_y - anchor_now_y) ** 2
-                    )
-                    if distance == 0:  # 迷失追蹤
-                        continue
-                    elif distance < 0.15:
-                        pass
-                        # print('有人停下來了')
-                    elif distance < 0.05:
-                        IS_WAIT_FLAG = True
-                        print('有人超級趨近於0')
-                    # print(distance)
-                # print(last_tracker_id)
-                last_xyxy = detections_p_previous.xyxy
-        print("------------------")
-        for incross in incrossRoad:  # 每區的斑馬線個別確認有沒有車 避免a沒人 b區有人 可是a區車通過被誤判
-            classes_incross = [class_list[i] for i in incross.class_id]
-            classes_inwait = [
-                class_list[i] for i in detections_p.class_id
-            ]  # 另一條斑馬線沒等待區? 我先做單條斑馬線判斷就好
-            if TRAFFIC_FLAG == 0 or TRAFFIC_FLAG == 1:  # 有號誌
-                if TRAFFIC_FLAG == 0:  # 行人紅燈
-                    if "car" in classes_incross and "pedestrian" in classes_incross:
-                        print("有車違規-行人紅燈-有人還沒過完")
-                elif TRAFFIC_FLAG == 1:  # 行人綠燈
-                    if "car" in classes_incross and (
-                        "pedestrian" in classes_incross or "pedestrian" in classes_inwait
-                    ):
-                        print("有車違規-行人綠燈-有人還沒過完或是有人在等待")
-            else:  # 無號誌
+    # 到時加if 行人數量>2且通過就警示
+    detections_p = tracker.update_with_detections(detections_p)
+    if frame_count != 0:
+        for xyxy, mask, confidence, class_id, tracker_id in detections_p:
+            last_tracker_id = detections_p_previous.tracker_id
+            anchor_now_x = xyxy[2] - xyxy[0]
+            anchor_now_y = xyxy[3] - xyxy[1]
+            # print(anchor_now_x,anchor_now_y)
+            if tracker_id in last_tracker_id:
+                index = list(last_tracker_id).index(tracker_id)
+                last_xyxy = detections_p_previous.xyxy[index]
+                anchor_pre_x = last_xyxy[2] - last_xyxy[0]
+                anchor_pre_y = last_xyxy[3] - last_xyxy[1]
+                distance = np.sqrt(
+                    (anchor_pre_x - anchor_now_x) ** 2 + (anchor_pre_y - anchor_now_y) ** 2
+                )
+                if distance == 0:  # 迷失追蹤
+                    continue
+                elif distance < 0.15:
+                    pass
+                    # print('有人停下來了')
+                elif distance < 0.05:
+                    IS_WAIT_FLAG = True
+                    print('有人超級趨近於0')
+                # print(distance)
+            # print(last_tracker_id)
+            last_xyxy = detections_p_previous.xyxy
+    print("------------------")
+    for incross in incrossRoad:  # 每區的斑馬線個別確認有沒有車 避免a沒人 b區有人 可是a區車通過被誤判
+        classes_incross = [class_list[i] for i in incross.class_id]
+        classes_inwait = [
+            class_list[i] for i in detections_p.class_id
+        ]  # 另一條斑馬線沒等待區? 我先做單條斑馬線判斷就好
+        if TRAFFIC_FLAG == 0 or TRAFFIC_FLAG == 1:  # 有號誌
+            if TRAFFIC_FLAG == 0:  # 行人紅燈
+                if "car" in classes_incross and "pedestrian" in classes_incross:
+                    print("有車違規-行人紅燈-有人還沒過完")
+            elif TRAFFIC_FLAG == 1:  # 行人綠燈
                 if "car" in classes_incross and (
                     "pedestrian" in classes_incross or "pedestrian" in classes_inwait
                 ):
-                    print("有車違規-無號誌模式-有人還沒過完或是有人在等待")
+                    print("有車違規-行人綠燈-有人還沒過完或是有人在等待")
+        else:  # 無號誌
+            if "car" in classes_incross and (
+                "pedestrian" in classes_incross or "pedestrian" in classes_inwait
+            ):
+                print("有車違規-無號誌模式-有人還沒過完或是有人在等待")
 
-                # TODO 
-                # 取得違規的車輛tracker_id
-                # 登記違規 (之後排除重複違規)
-                # 用tracker_id去找違規車輛的 trace
-                # TraceAnnotator.trace.get(tracker_id) -> [[x,y]....]
+            # TODO
+            # 取得違規的車輛tracker_id
+            # 登記違規 (之後排除重複違規)
+            # 用tracker_id去找違規車輛的 trace
+            # TraceAnnotator.trace.get(tracker_id) -> [[x,y]....]
 
-            # print(
-            #     "\n".join(
-            #         [
-            #             F"{name}:{len([x for x in classes_incross if x == name])}"
-            #             for name in class_list.values()
-            #             if len([x for x in classes_incross if x == name]) != 0
-            #         ]
-            #     )
-            # )
+        # print(
+        #     "\n".join(
+        #         [
+        #             F"{name}:{len([x for x in classes_incross if x == name])}"
+        #             for name in class_list.values()
+        #             if len([x for x in classes_incross if x == name]) != 0
+        #         ]
+        #     )
+        # )
 
-        # for element in detections.class_id:
-        #     if class_list[element]!='pedestrian' : #有'pedestrian' 跟 'people' 但people連機車上的人也會偵測 但行人不會被誤判
-        #         if not TRAFFIC_FLAG and IS_WAIT_FLAG :
-        #             print("有車違規-無號誌模式-有人在等待")
-        # 號誌undo
+    # for element in detections.class_id:
+    #     if class_list[element]!='pedestrian' : #有'pedestrian' 跟 'people' 但people連機車上的人也會偵測 但行人不會被誤判
+    #         if not TRAFFIC_FLAG and IS_WAIT_FLAG :
+    #             print("有車違規-無號誌模式-有人在等待")
+    # 號誌undo
 
-        # 兩種情況 =>有號誌 if 綠燈=true 就只偵測斑馬線區 else都抓
-        # 兩種情況 =>無號誌 if 都抓 and 看行人是否等待或是路過
+    # 兩種情況 =>有號誌 if 綠燈=true 就只偵測斑馬線區 else都抓
+    # 兩種情況 =>無號誌 if 都抓 and 看行人是否等待或是路過
 
-        if close_mask == 1:
-            detections = detections_origin
-            annotated_frame = box_annotator.annotate(  # 標記bounding box
-                scene=frame, detections=detections
-            )
+    if close_mask == 1:
+        detections = detections_origin
+        annotated_frame = box_annotator.annotate(  # 標記bounding box
+            scene=frame, detections=detections
+        )
 
-        # print(detections.tracker_id)
+    # print(detections.tracker_id)
 
-        detections_p_previous = tracker.update_with_detections(detections_p)
+    detections_p_previous = tracker.update_with_detections(detections_p)
 
-        frame_count += 1
-        ay.append(Total_in_area)
-        a_ped.append(pedestrian_count)
-        a_car.append(car_count)
-        ax.append(frame_count)
+    frame_count += 1
+    ay.append(Total_in_area)
+    a_ped.append(pedestrian_count)
+    a_car.append(car_count)
+    ax.append(frame_count)
 
-        # plt.pause(0.0100000001)
-        # plt.ioff()
-        # update_plot_statistics()
+    # plt.pause(0.0100000001)
+    # plt.ioff()
+    # update_plot_statistics()
 
-        # sink.write_frame(frame=annotated_frame)
-        annotated_frame = plot_update(annotated_frame)
-        # print(frame_count)
-        starttime = time.time()
-        plt.clf()
-        cv2.imshow('frame', annotated_frame)
-        cv2.imshow('GUI', origin_img)
-        if frame_count == 1:
-            cv2.createTrackbar('Right-0-CloseMask', 'GUI', 0, 1, test)
-            cv2.createTrackbar('PLOT_DISABLE', 'GUI', 0, 1, test)
-            cv2.createTrackbar('off red green', 'GUI', 0, 2, traffic)
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord("q"):
-            break
-        elif key == ord("s"):
-            cap.set(1, cap.get(1) + 30 * 5)
+    # sink.write_frame(frame=annotated_frame)
+    annotated_frame = plot_update(annotated_frame)
+    # print(frame_count)
+    starttime = time.time()
+    plt.clf()
+    cv2.imshow('frame', annotated_frame)
+    cv2.imshow('GUI', origin_img)
+    if frame_count == 1:
+        cv2.createTrackbar('Right-0-CloseMask', 'GUI', 0, 1, test)
+        cv2.createTrackbar('PLOT_DISABLE', 'GUI', 0, 1, test)
+        cv2.createTrackbar('off red green', 'GUI', 0, 2, traffic)
+    key = cv2.waitKey(1) & 0xFF
+    if key == ord("q"):
+        break
+    elif key == ord("s"):
+        cap.set(1, cap.get(1) + 30 * 5)
 cap.release()
 cv2.destroyAllWindows()
