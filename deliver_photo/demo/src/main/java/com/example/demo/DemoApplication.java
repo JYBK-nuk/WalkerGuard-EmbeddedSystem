@@ -1,5 +1,6 @@
 package com.example.demo;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -22,10 +23,18 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+
+import com.fasterxml.jackson.core.exc.StreamReadException;
+import com.fasterxml.jackson.databind.DatabindException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 class Point {
 	public int x;
@@ -34,6 +43,14 @@ class Point {
 	public String toString() {
 		return "x: " + x + ", y: " + y;
 	}
+}
+
+class Record {
+	public String plate;
+	public String img1;
+	public String img2;
+	public String time;
+
 }
 
 @SpringBootApplication
@@ -47,6 +64,7 @@ public class DemoApplication {
 	public class DemoController {
 		HashMap<String, File> images = new HashMap<String, File>();
 
+		// 取得傳來的圖片
 		@PostMapping("/image/{id}")
 		public String handleImageUpload(@PathVariable String id, @RequestParam("image") MultipartFile image) {
 			try {
@@ -67,10 +85,11 @@ public class DemoApplication {
 			}
 		}
 
+		// 從資料夾取得圖片
 		@GetMapping("/image/{id}")
 		public ResponseEntity<Resource> getImage(@PathVariable String id) {
 			// 根據ID檢索圖片檔案
-			File file = images.get(id);
+			File file = images.get(id);// new File(".\\src\\main\\resources\\static\\" + id + ".jpg");
 			if (file != null && file.exists()) {
 				try {
 					// 建立 Resource 物件並回傳圖片檔案
@@ -86,6 +105,7 @@ public class DemoApplication {
 			}
 		}
 
+		// 接收點完的座標
 		@PostMapping("/points")
 		public ResponseEntity<?> getPoints(@RequestBody List<Point> points) {
 			for (Point point : points) {
@@ -93,6 +113,19 @@ public class DemoApplication {
 			}
 			return ResponseEntity.ok(null);
 		}
+
+		// 取得違規紀錄
+		@PostMapping("/record")
+		// 印出當前路徑
+		File recordFile = new File(
+				"deliver_photo\\demo\\src\\main\\resources\\static\\record\\1.json");
+
+		File file1;
+		File file2;
+		// 讀取JSON檔案
+
+		ObjectMapper mapper = new ObjectMapper();
+		Record record = mapper.readValue(recordFile, Record.class);
 
 	}
 

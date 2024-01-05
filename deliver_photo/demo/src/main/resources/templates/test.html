@@ -15,25 +15,35 @@
       </div>
       <button @click="reset">reset</button>
       <button @click="postPoints">post</button>
+      <hr />
+      <h1>違規紀錄</h1>
+      <img :src="imageSrc1" />
+      <img :src="imageSrc2" />
     </div>
 
-    <script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.5.0/jszip.min.js"
+    >
+
       const app = Vue.createApp({
         data() {
           return {
             imageUrl: "",
             points: [],
             wh: [0, 0],
+            imageSrc1: "",
+            imageSrc2: "",
           };
         },
 
         mounted() {
           this.getImage();
+          this.getRecord();
         },
 
         methods: {
           async getImage() {
-            const response = await fetch("http://localhost:8080/image", {
+            const response = await fetch("http://localhost:8080/image/1", {
               method: "GET",
               headers: {
                 "Content-Type": "application/json",
@@ -93,6 +103,39 @@
             ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
             this.getImage();
+          },
+          async getRecord() {
+            const response = await fetch("http://localhost:8080/record", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              mode: "cors",
+            });
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            } else {
+              const blob = await response.blob();
+              const zip = await JSZip.loadAsync(blob);
+              const file1 = zip.files["file1.jpg"];
+              const file2 = zip.files["file2.jpg"];
+              const blob1 = await file1.async("blob");
+              const blob2 = await file2.async("blob");
+
+              const reader1 = new FileReader();
+              reader1.onloadend = () => {
+                this.imageSrc1 = reader1.result;
+              };
+              reader1.readAsDataURL(blob1);
+
+              const reader2 = new FileReader();
+              reader2.onloadend = () => {
+                this.imageSrc2 = reader2.result;
+              };
+              reader2.readAsDataURL(blob2);
+            }
+            console.log(this.imageSrc1);
           },
         },
       });
