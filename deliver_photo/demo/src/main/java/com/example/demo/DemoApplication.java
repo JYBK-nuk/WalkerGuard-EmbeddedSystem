@@ -7,6 +7,7 @@ import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
@@ -63,6 +64,7 @@ public class DemoApplication {
 	@RestController
 	public class DemoController {
 		HashMap<String, File> images = new HashMap<String, File>();
+		ArrayList<Record> records = new ArrayList<Record>();
 
 		// 取得傳來的圖片
 		@PostMapping("/image/{id}")
@@ -115,18 +117,17 @@ public class DemoApplication {
 		}
 
 		// 取得違規紀錄
-		@PostMapping("/record")
-		public void handleRecord() {
-			File recordFile = new File("deliver_photo\\demo\\src\\main\\resources\\static\\record\\1.json");
-			ObjectMapper mapper = new ObjectMapper();
-			try {
-				Record record = mapper.readValue(recordFile, Record.class);
-				// 在這裡處理 record
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
+		@GetMapping("/record")
+		public ResponseEntity<ArrayList<Record>> getRecord() {
+			return ResponseEntity.ok(records);
 		}
 
+		// 接收違規紀錄
+		@PostMapping("/record")
+		public ResponseEntity<?> getRecord(@RequestBody Record record) {
+			records.add(record);
+			return ResponseEntity.ok(null);
+		}
 	}
 
 }
