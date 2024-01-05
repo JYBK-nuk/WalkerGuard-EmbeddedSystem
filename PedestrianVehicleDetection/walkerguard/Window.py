@@ -1,7 +1,7 @@
-
 import cv2
 import numpy as np
 import time
+
 
 class Window:
     def __init__(self, window_name, window_size: tuple = (1600, 900)):
@@ -66,11 +66,14 @@ class Window:
         if event == cv2.EVENT_LBUTTONDOWN:
             self.__clickPoints.append((x, y))
 
+    def __mouse_nothing(self, event, x, y, flags, param):
+        pass
+
     def getClickPoints(self, num: int = 4):
         self.__clickPoints = []
         cv2.setMouseCallback(self.window_name, self.__mouse_callback)
         while True:
-            time.sleep(0.001)
+            self.update(self.image)
             if self.key == ord('r'):
                 self.__clickPoints = []
                 print("reset")
@@ -80,10 +83,9 @@ class Window:
                     break
             elif len(self.__clickPoints) > num:
                 self.__clickPoints = []
-            self.update(self.image)
         clickPoints = self.__clickPoints
         self.__clickPoints = []
-        cv2.setMouseCallback(self.window_name, lambda *args: None)
+        cv2.setMouseCallback(self.window_name, self.__mouse_nothing)
         return clickPoints
 
     def run(self):

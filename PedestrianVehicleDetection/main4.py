@@ -37,6 +37,12 @@ class WalkerGuard:
                     np.array(
                         window.getClickPoints(4),
                     ),
+                ],
+                class_dict=self.detector.class_dict,
+                video_info=video_info,
+            ),
+            "斑馬線": Tracker(
+                poly=[
                     np.array(
                         window.getClickPoints(4),
                     ),
@@ -45,31 +51,45 @@ class WalkerGuard:
                 video_info=video_info,
             ),
         }
-        print("行人等待區 : ", " , ".join([str(x) for x in self.tracker["行人等待區"].poly]))
 
         self.detections_pedestrians_waiting = []
         self.detections_pedestrians_crossing = []
-
         self.detections_vehicle_entered = []
 
-    def update(self, frame, detections: Detections):
+    def update(self, annotated_frame, detections: Detections):
         temp = self.tracker["行人等待區"].getInside(
             detections,
-            frame,
-            byTime=3,
-            class_name="",
+            annotated_frame,
+            byTime=2,
+            class_name=["people"],
             labelFunc=lambda x: "Waiting" if x > 0 else "Nobody",
         )
         self.detections_pedestrians_waiting = temp[0]  # [Detections, Detections, ...]
-        count = temp[1]  # [int, int, ...]
-        annotated_frame = temp[2]  # visualized frame
+
+        temp = self.tracker["斑馬線"].getInside(
+            detections,
+            annotated_frame,
+            byTime=0,
+            class_name=["people"],
+            labelFunc=lambda x: "Crossing" if x > 0 else "Nobody",
+        )
+
+        self.detections_pedestrians_crossing = temp[0]  # [Detections, Detections, ...]
+
+        temp = self.tracker["斑馬線"].getInside(
+            detections,
+            annotated_frame,
+            byTime=0,
+            class_name=["vehicle"],
+            labelFunc=lambda x: F"Vehicle:{x}",
+            TextOffsetY=50,
+        )
+
+        self.detections_vehicle_entered = temp[0]  # [Detections, Detections, ...]
+
         return annotated_frame
 
-    def isPedestriansWaiting(self, detections: Detections):
-        return True
 
-    def isPedestriansCrossing(self, detections: Detections):
-        return True
 
 
 window = Window("Preview")
@@ -84,7 +104,7 @@ def main():
     first_frame = cap.read()[1]
     window.image = first_frame
 
-    walkerGuard = WalkerGuard("./model/best.pt", window, video_info)
+    walkerGuard = WalkerGuard("./model/vir.pt", window, video_info)
 
     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
     while cap.isOpened():
