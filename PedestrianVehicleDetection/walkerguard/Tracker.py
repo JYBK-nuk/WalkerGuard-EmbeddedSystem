@@ -7,7 +7,8 @@ from supervision import Detections, BoxAnnotator
 from supervision import ColorPalette
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import datetime
-
+import random
+from supervision.geometry.core import Point
 
 colors = sv.ColorPalette.default()
 
@@ -26,31 +27,40 @@ class Tracker:
         ]
         self.zone_annotators = [
             sv.PolygonZoneAnnotator(
-                zone=poly, color=colors.by_idx(i), thickness=2, text_thickness=1, text_scale=1
+                zone=poly,
+                color=random.choice(colors.colors),
+                thickness=2,
+                text_thickness=1,
+                text_scale=1,
             )
-            for i, poly in enumerate(self.poly)
+            for poly in self.poly
         ]
-        self.track_annotators = [sv.ByteTrack() for i in range(len(self.poly))]
+        self.track_annotators = [sv.ByteTrack(track_buffer=120) for i in range(len(self.poly))]
         self.trackingStartTime = [
             defaultdict(lambda: datetime.datetime.now()) for i in range(len(self.poly))
         ]
         self.box_annotator = sv.BoundingBoxAnnotator(thickness=2, color=ColorPalette.default())
         self.label_annotator = sv.LabelAnnotator(text_position=sv.Position.TOP_LEFT)
 
+        self.__TextPos: list[Point] = [p.center for p in self.zone_annotators]
+
     def getInside(
         self,
         detections: Detections,
         annotated_frame=None,
         byTime=0,
-        class_name="",
+        class_name=[],
         labelFunc: callable = None,
+        TextOffsetY=0,
     ) -> tuple[Detections, list[int], np.ndarray]:
         output: list[Detections] = []
         output_count: list[int] = []
-        print("detections : ")
         for zone_index, (zone, track_annotator, zone_annotator) in enumerate(
             zip(self.poly, self.track_annotators, self.zone_annotators)
         ):
+            zone_annotator.center = Point(
+                self.__TextPos[zone_index].x, self.__TextPos[zone_index].y + TextOffsetY
+            )
             inside_tracker_id = []
             inside_detections = []
             zone = zone.trigger(detections=detections)
@@ -59,13 +69,12 @@ class Tracker:
 
             for xyxy, mask, confidence, class_id, tracker_id in detection_temp:
                 inside_tracker_id.append(tracker_id)
-                print(inside_tracker_id)
                 if (
                     self.trackingStartTime[zone_index][tracker_id]
                     + datetime.timedelta(seconds=byTime)
                     < datetime.datetime.now()
                 ):
-                    if class_name == "" or self.class_dict[class_id] == class_name:
+                    if len(class_name) == 0 or self.class_dict[class_id] in class_name:
                         inside_detections.append([xyxy, mask, confidence, class_id, tracker_id])
             ObjCount = len(inside_detections)
             output_count.append(ObjCount)
@@ -74,7 +83,7 @@ class Tracker:
                 if annotated_frame is not None:
                     annotated_frame = zone_annotator.annotate(
                         scene=annotated_frame,
-                        label=ObjCount if labelFunc is None else labelFunc(ObjCount),
+                        label=None if labelFunc is None else labelFunc(ObjCount),
                     )
 
                 inside_detections = sv.Detections(

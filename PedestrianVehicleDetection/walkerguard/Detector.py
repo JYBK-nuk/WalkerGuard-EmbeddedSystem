@@ -16,6 +16,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from scipy.interpolate import make_interp_spline
 from supervision import Position
 
+
 class Detector:
     def __init__(self, model_path: str):
         self.model_path = model_path
@@ -24,6 +25,8 @@ class Detector:
         for key, value in self.class_dict.items():
             if value in ["car", "van", "bus", "truck", "motor"]:
                 self.class_dict[key] = "vehicle"
+            if value in ["bicycle", "tricycle", "awning-tricycle"]:
+                self.class_dict[key] = "pedestrian"
 
         self.results = None
 
