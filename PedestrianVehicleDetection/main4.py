@@ -24,6 +24,13 @@ from walkerguard import Detector, Tracker, Window
 colors = sv.ColorPalette.default()
 
 
+def getAllZoneHasDetections(detections: list[Detections]):
+    for detection in detections:
+        if detection is not None:
+            return True
+    return False
+
+
 class WalkerGuard:
     detector: Detector
     tracker = {}
@@ -92,32 +99,35 @@ class WalkerGuard:
 
     def getViolateVehicle(self, signal="行人紅燈"):
         if signal == "行人紅燈":
-            if (
-                len(self.detections_vehicle_entered) > 0
-                and len(self.detections_pedestrians_crossing) > 0
+            if getAllZoneHasDetections(self.detections_vehicle_entered) and getAllZoneHasDetections(
+                self.detections_pedestrians_crossing
             ):
                 # 行人紅燈 但還有行人還在過馬路
+                window.showText("行人紅燈 但還有行人還在過馬路")
                 pass
         elif signal == "行人綠燈":
-            if len(self.detections_vehicle_entered) > 0 and (
-                len(self.detections_pedestrians_waiting) > 0
-                or len(self.detections_pedestrians_crossing) > 0
+            if getAllZoneHasDetections(self.detections_vehicle_entered) and (
+                getAllZoneHasDetections(self.detections_pedestrians_waiting)
+                or getAllZoneHasDetections(self.detections_pedestrians_crossing)
             ):
                 # 行人綠燈 但有車無停下等行人通過
+                window.showText("行人綠燈 但有車無停下等行人通過")
                 pass
         elif signal == "無號誌":
-            if len(self.detections_vehicle_entered) > 0 and (
-                len(self.detections_pedestrians_waiting) > 0
-                or len(self.detections_pedestrians_crossing) > 0
+            if getAllZoneHasDetections(self.detections_vehicle_entered) and (
+                getAllZoneHasDetections(self.detections_pedestrians_waiting)
+                or getAllZoneHasDetections(self.detections_pedestrians_crossing)
             ):
                 # 無號誌 但有車無停下等行人通過
+                window.showText("無號誌 但有車無停下等行人通過")
                 pass
 
         return self.detections_vehicle_entered
 
 
 window = Window("Preview")
-triangleA_annotator = sv.TriangleAnnotator()
+box_annotator = sv.BoxAnnotator(color=Color(255, 255, 255), thickness=1)
+corner_annotator = sv.BoxCornerAnnotator()
 
 
 def main():
@@ -134,11 +144,14 @@ def main():
     while cap.isOpened():
         ret, frame = cap.read()
         if ret:
-            detections, results = walkerGuard.detector.detect(frame, conf=0.2, verbose=False)
-            frame = triangleA_annotator.annotate(frame, detections)
+            detections, results = walkerGuard.detector.detect(frame, conf=0.4, verbose=False)
+
+            frame = corner_annotator.annotate(frame.copy(), detections)
+
             # Detection every area's objects
             image = walkerGuard.update(frame, detections)
             # Violate the objects
+            violate_vehicle = walkerGuard.getViolateVehicle()
 
             window.update(image)
             if window.key == ord('s'):

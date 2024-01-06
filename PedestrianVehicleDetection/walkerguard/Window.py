@@ -1,6 +1,9 @@
 import cv2
 import numpy as np
 import time
+import colorama
+
+colorama.init()
 
 
 class Window:
@@ -52,8 +55,17 @@ class Window:
         position: tuple = (0, 0),
         color: tuple = (0, 0, 255),
         font_scale: float = 1,
-        duration: int = 0,
+        duration: int = 3,
     ):
+        # print with timestamp and color
+        print(
+            colorama.Fore.GREEN
+            + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+            + colorama.Style.RESET_ALL
+            + " "
+            + text
+        )
+
         self.text = text
         self.text_reset_time = time.time() + duration
         self.text_format = {
