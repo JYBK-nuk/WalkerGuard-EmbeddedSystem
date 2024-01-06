@@ -2,44 +2,53 @@ import cv2
 import numpy as np
 import time
 import colorama
+from PIL import Image, ImageDraw, ImageFont
 
 colorama.init()
+font = ImageFont.truetype('msjhbd.ttc', 40)
 
 
 class Window:
     def __init__(self, window_name, window_size: tuple = (1600, 900)):
         self.window_name = window_name
+        self.signal = "行人紅燈"
         self.image = np.zeros((window_size[1], window_size[0], 3), np.uint8)
-        self.text = ""
+        self.text = []
         self.text_reset_time = None
         self.text_format = {
-            "position": (0, 0),
             "color": (0, 0, 255),
-            "font_scale": 1,
         }
+
         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
         cv2.resizeWindow(self.window_name, window_size[0], window_size[1])
+        cv2.setMouseCallback(self.window_name, self.__mouse_callback)
         self.__clickPoints = []
+        self.__gettingClickPoints = False
         self.key = None
+
+    def SignalChange(self):
+        ls = ["行人紅燈", "行人綠燈", "無號誌"]
+        self.signal = ls[(ls.index(self.signal) + 1) % len(ls)]
+
+    def __drawText(self, image: np.ndarray):
+        y = 50
+        imgPil = Image.fromarray(image)
+        draw = ImageDraw.Draw(imgPil)
+        draw.text((0, 0), self.signal, fill=(0, 255, 0), font=font)
+        for text in self.text:
+            draw.text((0, y), text, fill=self.text_format["color"], font=font, stroke_width=1,stroke_fill=(0,0,0))
+            y += 50
+        image = np.array(imgPil)
+        return image
 
     def update(self, image: np.ndarray):
         self.image = image
         image = image.copy()
         if self.text_reset_time is not None:
             if time.time() > self.text_reset_time:
-                self.text = ""
+                self.text = []
                 self.text_reset_time = None
-
-        if self.text != "":
-            image = cv2.putText(
-                image,
-                self.text,
-                self.text_format["position"],
-                cv2.FONT_HERSHEY_SIMPLEX,
-                self.text_format["font_scale"],
-                self.text_format["color"],
-                2,
-            )
+        image = self.__drawText(image)
         # draw points and polygons
         if len(self.__clickPoints) > 0:
             for point in self.__clickPoints:
@@ -51,10 +60,8 @@ class Window:
 
     def showText(
         self,
-        text: str,
-        position: tuple = (0, 0),
-        color: tuple = (0, 0, 255),
-        font_scale: float = 1,
+        text: list[str],
+        color: tuple = (255, 150, 150),
         duration: int = 3,
     ):
         # print with timestamp and color
@@ -62,46 +69,44 @@ class Window:
             colorama.Fore.GREEN
             + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
             + colorama.Style.RESET_ALL
-            + " "
-            + text
+            + "\n"
+            + str(text)
         )
 
         self.text = text
         self.text_reset_time = time.time() + duration
         self.text_format = {
-            "position": position,
             "color": color,
-            "font_scale": font_scale,
         }
 
     def __mouse_callback(self, event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
-            self.__clickPoints.append((x, y))
-
-    def __mouse_nothing(self, event, x, y, flags, param):
-        pass
+            if self.__gettingClickPoints:
+                self.__clickPoints.append((x, y))
+            else:
+                self.SignalChange()
 
     def getClickPoints(self, num: int = 4):
+        self.__gettingClickPoints = True
         self.__clickPoints = []
-        cv2.setMouseCallback(self.window_name, self.__mouse_callback)
         while True:
             self.update(self.image)
             if self.key == ord('r'):
                 self.__clickPoints = []
-                print("reset")
+                print("Reset!")
             if len(self.__clickPoints) == num:
                 if self.key == ord('c'):
-                    print("confirm")
+                    print(F"Confirm click points : {self.__clickPoints}")
                     break
             elif len(self.__clickPoints) > num:
                 self.__clickPoints = []
         clickPoints = self.__clickPoints
         self.__clickPoints = []
-        cv2.setMouseCallback(self.window_name, self.__mouse_nothing)
+        self.__gettingClickPoints = False
         return clickPoints
 
     def run(self):
         self.update(self.image)
         self.key = cv2.waitKey(1) & 0xFF
         if self.key == ord('q'):
-            return False
+            return True

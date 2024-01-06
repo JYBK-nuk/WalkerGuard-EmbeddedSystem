@@ -19,6 +19,7 @@ class Tracker:
         poly: list[np.ndarray],
         class_dict: dict,
         video_info: sv.VideoInfo,
+        color: list[sv.Color] = colors,
     ):
         self.class_dict: class_dict = class_dict
         self.poly = [
@@ -28,20 +29,20 @@ class Tracker:
         self.zone_annotators = [
             sv.PolygonZoneAnnotator(
                 zone=poly,
-                color=random.choice(colors.colors),
-                thickness=2,
+                color=color[i],
+                thickness=1,
                 text_thickness=1,
-                text_scale=1,
+                text_scale=0.6,
             )
-            for poly in self.poly
+            for i, poly in enumerate(self.poly)
         ]
-        self.track_annotators = [sv.ByteTrack(track_buffer=120) for i in range(len(self.poly))]
+        self.track_annotators = [
+            sv.ByteTrack(track_buffer=120, track_thresh=0.35) for i in range(len(self.poly))
+        ]
         self.trackingStartTime = [
             defaultdict(lambda: datetime.datetime.now()) for i in range(len(self.poly))
         ]
         self.box_annotator = sv.BoundingBoxAnnotator(thickness=2, color=ColorPalette.default())
-        self.label_annotator = sv.LabelAnnotator(text_position=sv.Position.TOP_LEFT)
-
         self.__TextPos: list[Point] = [p.center for p in self.zone_annotators]
 
     def getInside(
@@ -65,7 +66,7 @@ class Tracker:
             inside_detections = []
             zone = zone.trigger(detections=detections)
             detection_temp: Detections = detections[zone]  # 取出該區域的物件
-            detection_temp = track_annotator.update_with_detections(detection_temp)
+            # detection_temp = track_annotator.update_with_detections(detection_temp)
 
             for xyxy, mask, confidence, class_id, tracker_id in detection_temp:
                 inside_tracker_id.append(tracker_id)
@@ -96,16 +97,6 @@ class Tracker:
                 if annotated_frame is not None:
                     annotated_frame = self.box_annotator.annotate(
                         scene=annotated_frame, detections=inside_detections
-                    )
-                    annotated_frame = self.label_annotator.annotate(
-                        scene=annotated_frame,
-                        detections=inside_detections,
-                        labels=[
-                            F"{self.class_dict[x]} # {tid}"
-                            for x, tid in zip(
-                                inside_detections.class_id, inside_detections.tracker_id
-                            )
-                        ],
                     )
                 output.append(inside_detections)
 

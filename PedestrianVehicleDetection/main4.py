@@ -15,13 +15,11 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from scipy.interpolate import make_interp_spline
 from supervision import Position
-import datetime
+from ui import UI
 import time
 import threading
 
 from walkerguard import Detector, Tracker, Window
-
-colors = sv.ColorPalette.default()
 
 
 def getAllZoneHasDetections(detections: list[Detections]):
@@ -33,30 +31,42 @@ def getAllZoneHasDetections(detections: list[Detections]):
 
 class WalkerGuard:
     detector: Detector
+    corner_annotator = sv.BoxCornerAnnotator()
+    label_annotator = sv.LabelAnnotator(
+        text_position=Position.TOP_RIGHT,
+        text_thickness=1,
+        text_scale=0.35,
+    )
     tracker = {}
     violate_history = {}
 
     def __init__(self, model_path: str, window: Window, video_info):
         self.detector = Detector(model_path)
+        self.video_info = video_info
+        self.trace_annotator = sv.TraceAnnotator(trace_length=video_info.fps * 10,position=Position.BOTTOM_CENTER)
         print(self.detector.class_dict)
         self.tracker = {
             "行人等待區": Tracker(
                 poly=[
                     np.array(
-                        window.getClickPoints(4),
+                        [(401, 254), (304, 364), (490, 401), (607, 274)]
+                        # window.getClickPoints(4),
                     ),
                 ],
                 class_dict=self.detector.class_dict,
                 video_info=video_info,
+                color=[Color(255, 0, 255)],
             ),
             "斑馬線": Tracker(
                 poly=[
                     np.array(
-                        window.getClickPoints(4),
+                        [(798, 17), (478, 246), (620, 264), (898, 28)]
+                        # window.getClickPoints(4),
                     ),
                 ],
                 class_dict=self.detector.class_dict,
                 video_info=video_info,
+                color=[Color(0, 255, 255)],
             ),
         }
 
@@ -64,10 +74,21 @@ class WalkerGuard:
         self.detections_pedestrians_crossing = []
         self.detections_vehicle_entered = []
 
-    def update(self, annotated_frame, detections: Detections):
+    def update(self, frame: np.ndarray, detections: Detections):
+        self.corner_annotator.annotate(frame, detections)
+        self.label_annotator.annotate(
+            scene=frame,
+            detections=detections,
+            labels=[
+                F"{self.detector.class_dict[x]} #{tid}"
+                for x, tid in zip(detections.class_id, detections.tracker_id)
+            ],
+        )
+        self.trace_annotator.annotate(scene=frame, detections=detections)
+
         temp = self.tracker["行人等待區"].getInside(
             detections,
-            annotated_frame,
+            frame,
             byTime=2,
             class_name=["people", "pedestrian"],
             labelFunc=lambda x: "Waiting" if x > 0 else "Nobody",
@@ -76,7 +97,7 @@ class WalkerGuard:
 
         temp = self.tracker["斑馬線"].getInside(
             detections,
-            annotated_frame,
+            frame,
             byTime=0,
             class_name=["pedestrian"],
             labelFunc=lambda x: "Crossing" if x > 0 else "Nobody",
@@ -86,7 +107,7 @@ class WalkerGuard:
 
         temp = self.tracker["斑馬線"].getInside(
             detections,
-            annotated_frame,
+            frame,
             byTime=0,
             class_name=["vehicle"],
             labelFunc=lambda x: F"Vehicle:{x}",
@@ -95,7 +116,21 @@ class WalkerGuard:
 
         self.detections_vehicle_entered = temp[0]  # [Detections, Detections, ...]
 
-        return annotated_frame
+        return frame
+
+    def __UpdateViolateHistory(self, detectionsList: list[Detections]):
+        for detections in detectionsList:
+            for t_id, class_id in zip(detections.tracker_id, detections.class_id):
+                objectTraces = self.trace_annotator.trace.get(t_id)
+                if objectTraces is not None:
+                    if t_id not in self.violate_history:
+                        window.showText(
+                            [F"違規車輛: #{t_id} {self.detector.class_dict[class_id]}"],
+                            (255, 0, 255),
+                            3,
+                        )
+                        print(objectTraces)
+                        self.violate_history[t_id] = objectTraces
 
     def getViolateVehicle(self, signal="行人紅燈"):
         if signal == "行人紅燈":
@@ -103,7 +138,8 @@ class WalkerGuard:
                 self.detections_pedestrians_crossing
             ):
                 # 行人紅燈 但還有行人還在過馬路
-                window.showText("行人紅燈 但還有行人還在過馬路")
+                self.__UpdateViolateHistory(self.detections_vehicle_entered)
+
                 pass
         elif signal == "行人綠燈":
             if getAllZoneHasDetections(self.detections_vehicle_entered) and (
@@ -111,7 +147,7 @@ class WalkerGuard:
                 or getAllZoneHasDetections(self.detections_pedestrians_crossing)
             ):
                 # 行人綠燈 但有車無停下等行人通過
-                window.showText("行人綠燈 但有車無停下等行人通過")
+                self.__UpdateViolateHistory(self.detections_vehicle_entered)
                 pass
         elif signal == "無號誌":
             if getAllZoneHasDetections(self.detections_vehicle_entered) and (
@@ -119,15 +155,14 @@ class WalkerGuard:
                 or getAllZoneHasDetections(self.detections_pedestrians_crossing)
             ):
                 # 無號誌 但有車無停下等行人通過
-                window.showText("無號誌 但有車無停下等行人通過")
+                self.__UpdateViolateHistory(self.detections_vehicle_entered)
                 pass
 
         return self.detections_vehicle_entered
+    
 
 
 window = Window("Preview")
-box_annotator = sv.BoxAnnotator(color=Color(255, 255, 255), thickness=1)
-corner_annotator = sv.BoxCornerAnnotator()
 
 
 def main():
@@ -146,17 +181,33 @@ def main():
         if ret:
             detections, results = walkerGuard.detector.detect(frame, conf=0.4, verbose=False)
 
-            frame = corner_annotator.annotate(frame.copy(), detections)
+            ## Detection every area's objects and visualize
+            annotated_frame = walkerGuard.update(frame.copy(), detections)
 
-            # Detection every area's objects
-            image = walkerGuard.update(frame, detections)
-            # Violate the objects
-            violate_vehicle = walkerGuard.getViolateVehicle()
+            ## get violate vehicles
+            violate_vehicle = walkerGuard.getViolateVehicle(window.signal)
 
-            window.update(image)
+            ## refresh window
+            current_time = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
+            annotated_frame = cv2.putText(
+                annotated_frame,
+                F"Time: {current_time:.2f}",
+                (10, video_info.resolution_wh[1] - 100),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                (255, 255, 255),
+                2,
+                cv2.LINE_AA,
+            )
+            window.update(annotated_frame)
             if window.key == ord('s'):
                 # skip 5 seconds
                 cap.set(cv2.CAP_PROP_POS_FRAMES, cap.get(cv2.CAP_PROP_POS_FRAMES) + 5 * 30)
+            if window.key == ord('1'):
+                jumpTime = 320
+                cap.set(cv2.CAP_PROP_POS_FRAMES, jumpTime * 30)
+            if window.key == ord('2'):
+                pass
 
 
 if __name__ == "__main__":

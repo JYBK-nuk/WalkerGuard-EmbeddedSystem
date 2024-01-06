@@ -29,8 +29,10 @@ class Detector:
                 self.class_dict[key] = "pedestrian"
 
         self.results = None
+        self.MainTracker = sv.ByteTrack(track_buffer=120, track_thresh=0.35)
 
     def detect(self, image: np.ndarray, conf: float = 0.4, verbose: bool = False):
         results = self.model.predict(image, conf=conf, verbose=verbose)[0]
         detections = sv.Detections.from_ultralytics(results)
+        detections = self.MainTracker.update_with_detections(detections)
         return detections, results
