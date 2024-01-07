@@ -9,7 +9,7 @@ font = ImageFont.truetype('msjhbd.ttc', 40)
 
 
 class Window:
-    def __init__(self, window_name, window_size: tuple = (1600, 900)):
+    def __init__(self, window_name, window_size: tuple = (1280, 720)):
         self.window_name = window_name
         self.signal = "行人紅燈"
         self.image = np.zeros((window_size[1], window_size[0], 3), np.uint8)

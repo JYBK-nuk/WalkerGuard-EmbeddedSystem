@@ -17,7 +17,7 @@ model = YOLO(F"model/{models[int(input())-1]}")
 
 # Open the video file
 video_path = "https://cctv4.kctmc.nat.gov.tw/47009f84"
-video_path = "https://cctv1.kctmc.nat.gov.tw/4c153727"
+video_path = 1
 cap = cv2.VideoCapture(video_path)
 
 # Store the track history

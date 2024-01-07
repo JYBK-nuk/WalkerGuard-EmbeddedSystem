@@ -31,9 +31,9 @@ def getAllZoneHasDetections(detections: list[Detections]):
 
 class WalkerGuard:
     detector: Detector
-    corner_annotator = sv.BoxCornerAnnotator()
+    corner_annotator = sv.BoxCornerAnnotator(corner_length=10, thickness=2)
     label_annotator = sv.LabelAnnotator(
-        text_position=Position.TOP_RIGHT,
+        text_position=Position.TOP_LEFT,
         text_thickness=1,
         text_scale=0.35,
     )
@@ -43,30 +43,36 @@ class WalkerGuard:
     def __init__(self, model_path: str, window: Window, video_info):
         self.detector = Detector(model_path)
         self.video_info = video_info
-        self.trace_annotator = sv.TraceAnnotator(trace_length=video_info.fps * 10,position=Position.BOTTOM_CENTER)
+        self.trace_annotator = sv.TraceAnnotator(
+            trace_length=video_info.fps * 10, position=Position.BOTTOM_CENTER
+        )
         print(self.detector.class_dict)
         self.tracker = {
             "行人等待區": Tracker(
                 poly=[
                     np.array(
-                        [(401, 254), (304, 364), (490, 401), (607, 274)]
+                        [(322, 324), (238, 357), (351, 395), (392, 335)]
+                        # window.getClickPoints(4),
+                    ),
+                    np.array(
+                        [(552, 177), (526, 191), (597, 201), (601, 180)]
                         # window.getClickPoints(4),
                     ),
                 ],
                 class_dict=self.detector.class_dict,
                 video_info=video_info,
-                color=[Color(255, 0, 255)],
+                color=[Color(255, 255, 255), Color(255, 255, 255)],
             ),
             "斑馬線": Tracker(
                 poly=[
                     np.array(
-                        [(798, 17), (478, 246), (620, 264), (898, 28)]
+                        [(527, 195), (323, 319), (408, 331), (587, 199)]
                         # window.getClickPoints(4),
                     ),
                 ],
                 class_dict=self.detector.class_dict,
                 video_info=video_info,
-                color=[Color(0, 255, 255)],
+                color=[Color(200, 255, 255)],
             ),
         }
 
@@ -76,22 +82,23 @@ class WalkerGuard:
 
     def update(self, frame: np.ndarray, detections: Detections):
         self.corner_annotator.annotate(frame, detections)
-        self.label_annotator.annotate(
-            scene=frame,
-            detections=detections,
-            labels=[
-                F"{self.detector.class_dict[x]} #{tid}"
-                for x, tid in zip(detections.class_id, detections.tracker_id)
-            ],
-        )
+        # self.label_annotator.annotate(
+        #     scene=frame,
+        #     detections=detections,
+        #     labels=[
+        #         F"{self.detector.class_dict[x]} #{tid}"
+        #         for x, tid in zip(detections.class_id, detections.tracker_id)
+        #     ],
+        # )
         self.trace_annotator.annotate(scene=frame, detections=detections)
 
         temp = self.tracker["行人等待區"].getInside(
             detections,
             frame,
-            byTime=2,
+            byTime=1,
             class_name=["people", "pedestrian"],
             labelFunc=lambda x: "Waiting" if x > 0 else "Nobody",
+            TextOffsetY=50,
         )
         self.detections_pedestrians_waiting = temp[0]  # [Detections, Detections, ...]
 
@@ -101,6 +108,7 @@ class WalkerGuard:
             byTime=0,
             class_name=["pedestrian"],
             labelFunc=lambda x: "Crossing" if x > 0 else "Nobody",
+            TextOffsetY=50,
         )
 
         self.detections_pedestrians_crossing = temp[0]  # [Detections, Detections, ...]
@@ -111,7 +119,7 @@ class WalkerGuard:
             byTime=0,
             class_name=["vehicle"],
             labelFunc=lambda x: F"Vehicle:{x}",
-            TextOffsetY=50,
+            TextOffsetY=0,
         )
 
         self.detections_vehicle_entered = temp[0]  # [Detections, Detections, ...]
@@ -159,19 +167,31 @@ class WalkerGuard:
                 pass
 
         return self.detections_vehicle_entered
-    
 
 
 window = Window("Preview")
+print("Loading video...")
+# video_path = 1
+video_path = "./video/WIN_20231229_11_33_12_Pro.mp4"
+cap = cv2.VideoCapture(video_path, cv2.CAP_DSHOW)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+
+video_info = sv.VideoInfo(
+    fps=cap.get(cv2.CAP_PROP_FPS),
+    width=int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+    height=int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+)
+print(video_info)
 
 
 def main():
-    video_path = "./video/WIN_20231229_11_33_12_Pro.mp4"
-    video_info = sv.VideoInfo.from_video_path(video_path=video_path)
-    cap = cv2.VideoCapture(video_path)
     # show first frame
-    first_frame = cap.read()[1]
-    window.image = first_frame
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if ret:
+            window.image = frame
+            break
 
     walkerGuard = WalkerGuard("./model/vir.pt", window, video_info)
 
@@ -179,7 +199,7 @@ def main():
     while cap.isOpened():
         ret, frame = cap.read()
         if ret:
-            detections, results = walkerGuard.detector.detect(frame, conf=0.4, verbose=False)
+            detections, results = walkerGuard.detector.detect(frame, conf=0.3, verbose=False)
 
             ## Detection every area's objects and visualize
             annotated_frame = walkerGuard.update(frame.copy(), detections)
@@ -188,17 +208,18 @@ def main():
             violate_vehicle = walkerGuard.getViolateVehicle(window.signal)
 
             ## refresh window
-            current_time = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
-            annotated_frame = cv2.putText(
-                annotated_frame,
-                F"Time: {current_time:.2f}",
-                (10, video_info.resolution_wh[1] - 100),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1,
-                (255, 255, 255),
-                2,
-                cv2.LINE_AA,
-            )
+            if not isinstance(video_path, int):
+                current_time = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
+                annotated_frame = cv2.putText(
+                    annotated_frame,
+                    F"Time: {current_time:.2f}",
+                    (10, video_info.resolution_wh[1] - 100),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    1,
+                    (255, 255, 255),
+                    2,
+                    cv2.LINE_AA,
+                )
             window.update(annotated_frame)
             if window.key == ord('s'):
                 # skip 5 seconds

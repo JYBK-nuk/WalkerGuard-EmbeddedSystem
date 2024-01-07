@@ -43,6 +43,11 @@ class Tracker:
             defaultdict(lambda: datetime.datetime.now()) for i in range(len(self.poly))
         ]
         self.box_annotator = sv.BoundingBoxAnnotator(thickness=2, color=ColorPalette.default())
+        self.label_annotator = sv.LabelAnnotator(
+            text_position=sv.Position.TOP_LEFT,
+            text_thickness=1,
+            text_scale=0.35,
+        )
         self.__TextPos: list[Point] = [p.center for p in self.zone_annotators]
 
     def getInside(
@@ -97,6 +102,16 @@ class Tracker:
                 if annotated_frame is not None:
                     annotated_frame = self.box_annotator.annotate(
                         scene=annotated_frame, detections=inside_detections
+                    )
+                    annotated_frame = self.label_annotator.annotate(
+                        scene=annotated_frame,
+                        detections=inside_detections,
+                        labels=[
+                            F"{self.class_dict[x]} #{tid}"
+                            for x, tid in zip(
+                                inside_detections.class_id, inside_detections.tracker_id
+                            )
+                        ],
                     )
                 output.append(inside_detections)
 
