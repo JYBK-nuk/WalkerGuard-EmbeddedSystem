@@ -51,12 +51,12 @@ class WalkerGuard:
             "行人等待區": Tracker(
                 poly=[
                     np.array(
-                        [(322, 324), (238, 357), (351, 395), (392, 335)]
-                        # window.getClickPoints(4),
+                        # [(322, 324), (238, 357), (351, 395), (392, 335)]
+                        window.getClickPoints(4),
                     ),
                     np.array(
-                        [(552, 177), (526, 191), (597, 201), (601, 180)]
-                        # window.getClickPoints(4),
+                        # [(552, 177), (526, 191), (597, 201), (601, 180)]
+                        window.getClickPoints(4),
                     ),
                 ],
                 class_dict=self.detector.class_dict,
@@ -66,8 +66,8 @@ class WalkerGuard:
             "斑馬線": Tracker(
                 poly=[
                     np.array(
-                        [(527, 195), (323, 319), (408, 331), (587, 199)]
-                        # window.getClickPoints(4),
+                        # [(527, 195), (323, 319), (408, 331), (587, 199)]
+                        window.getClickPoints(4),
                     ),
                 ],
                 class_dict=self.detector.class_dict,
@@ -173,15 +173,18 @@ window = Window("Preview")
 print("Loading video...")
 # video_path = 1
 video_path = "./video/WIN_20231229_11_33_12_Pro.mp4"
-cap = cv2.VideoCapture(video_path, cv2.CAP_DSHOW)
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-
-video_info = sv.VideoInfo(
-    fps=cap.get(cv2.CAP_PROP_FPS),
-    width=int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
-    height=int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
-)
+if isinstance(video_path, int):
+    cap = cv2.VideoCapture(video_path, cv2.CAP_DSHOW)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    video_info = sv.VideoInfo(
+        fps=cap.get(cv2.CAP_PROP_FPS),
+        width=int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+        height=int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+    )
+else:
+    cap = cv2.VideoCapture(video_path)
+    video_info = sv.VideoInfo.from_video_path(video_path)
 print(video_info)
 
 
