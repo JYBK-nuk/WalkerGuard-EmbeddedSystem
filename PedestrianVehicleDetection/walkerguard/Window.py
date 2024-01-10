@@ -3,6 +3,7 @@ import numpy as np
 import time
 import colorama
 from PIL import Image, ImageDraw, ImageFont
+import requests
 
 colorama.init()
 font = ImageFont.truetype('msjhbd.ttc', 40)
@@ -36,7 +37,14 @@ class Window:
         draw = ImageDraw.Draw(imgPil)
         draw.text((0, 0), self.signal, fill=(0, 255, 0), font=font)
         for text in self.text:
-            draw.text((0, y), text, fill=self.text_format["color"], font=font, stroke_width=1,stroke_fill=(0,0,0))
+            draw.text(
+                (0, y),
+                text,
+                fill=self.text_format["color"],
+                font=font,
+                stroke_width=1,
+                stroke_fill=(0, 0, 0),
+            )
             y += 50
         image = np.array(imgPil)
         return image
@@ -85,6 +93,9 @@ class Window:
                 self.__clickPoints.append((x, y))
             else:
                 self.SignalChange()
+        elif event == cv2.EVENT_RBUTTONDOWN:
+            requests.post("http://127.0.0.1/violate", json={"x": x, "y": y})
+            print("Test Violate!")
 
     def getClickPoints(self, num: int = 4):
         self.__gettingClickPoints = True

@@ -1,3 +1,6 @@
+import os
+print(os.environ.get('PATH'))
+
 import cv2
 from ultralytics import YOLO
 import plate
@@ -6,7 +9,7 @@ import plate
 model = YOLO('./best.pt')
 
 # Open the video file
-video_path = 1
+video_path = "IMG_5306.MOV"
 cap = cv2.VideoCapture(video_path)
 
 # Loop through the video frames

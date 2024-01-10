@@ -166,7 +166,7 @@ class WalkerGuard:
                 self.__UpdateViolateHistory(self.detections_vehicle_entered)
                 pass
 
-        return self.detections_vehicle_entered
+        return self.violate_history
 
 
 window = Window("Preview")
@@ -189,20 +189,29 @@ print(video_info)
 
 
 def main():
+    import requests
+
     # show first frame
     while cap.isOpened():
         ret, frame = cap.read()
         if ret:
             window.image = frame
             break
-
+    # post image to /initPlateCam/top
+    # @app.post("/initPlateCam/{cam}")
+    # async def process_image(image: UploadFile = File(...)
+    try:
+        file = cv2.imencode(".jpg", frame)[1].tobytes()
+        requests.post("http://127.0.0.1/initPlateCam/top", files={"image": file})
+    except:
+        pass
     walkerGuard = WalkerGuard("./model/vir.pt", window, video_info)
 
     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
     while cap.isOpened():
         ret, frame = cap.read()
         if ret:
-            detections, results = walkerGuard.detector.detect(frame, conf=0.3, verbose=False)
+            detections, results = walkerGuard.detector.detect(frame, conf=0.1, verbose=False)
 
             ## Detection every area's objects and visualize
             annotated_frame = walkerGuard.update(frame.copy(), detections)
@@ -228,10 +237,16 @@ def main():
                 # skip 5 seconds
                 cap.set(cv2.CAP_PROP_POS_FRAMES, cap.get(cv2.CAP_PROP_POS_FRAMES) + 5 * 30)
             if window.key == ord('1'):
-                jumpTime = 320
+                jumpTime = 310
                 cap.set(cv2.CAP_PROP_POS_FRAMES, jumpTime * 30)
             if window.key == ord('2'):
                 pass
+            if window.key == ord('i'):
+                try:
+                    file = cv2.imencode(".jpg", frame)[1].tobytes()
+                    requests.post("http://127.0.0.1/initPlateCam/top", files={"image": file})
+                except:
+                    pass
 
 
 if __name__ == "__main__":

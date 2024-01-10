@@ -32,6 +32,7 @@ def get_all_plates(imgs):
         out = cv2.hconcat(plate)
         cv2.imshow("plate", out)
         cv2.waitKey(1)
+        return out
     except:
         pass
 
